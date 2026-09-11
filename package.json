@@ -1,0 +1,26 @@
+{
+  "name": "web-extraction-assistant",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "python3 -m http.server 8765 --bind 127.0.0.1",
+    "test": "npm run test:xpath && npm run test:folder && npm run test:ui",
+    "test:xpath": "node js/check-xpath-node.js",
+    "test:folder": "node js/check-folder-node.js",
+    "test:ui": "node js/check-ui-node.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "jsdom": "^24.1.3",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^4.10.38",
+    "tesseract.js": "^5.1.1",
+    "tesseract.js-core": "^5.1.1"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.30.0"
+  }
+}

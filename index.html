@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extraction Assistant · Task Mining</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= top bar ================= -->
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="7"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Webpage Extraction Assistant</h1>
+          <p>Turn a saved webpage into Task Mining keys, XPaths and URL filters</p>
+        </div>
+      </div>
+      <span class="privacy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Runs on this computer only
+      </span>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ================= steps ================= -->
+    <nav class="steps" aria-label="Progress">
+      <span class="step active" id="step1"><span class="n">1</span> Add files</span>
+      <span class="step" id="step2"><span class="n">2</span> Pick a field</span>
+      <span class="step" id="step3"><span class="n">3</span> Check the match</span>
+      <span class="step" id="step4"><span class="n">4</span> Export</span>
+    </nav>
+
+    <!-- ================= dropzone ================= -->
+    <section id="drop" class="drop" aria-label="Upload files">
+      <div class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v13"/>
+        </svg>
+      </div>
+      <div class="drop-copy">
+        <h2>Add saved webpages</h2>
+        <p class="hint">Use this one uploader for an HTML file, a ZIP, or a folder. Non-HTML files inside folders are safely ignored.</p>
+      </div>
+      <div class="drop-actions" role="group" aria-label="Add saved webpages">
+        <label class="btn primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          Add HTML or ZIP
+          <input id="fileInput" type="file" multiple class="hidden"
+                 accept=".zip,.html,.htm,.mhtml,.mht,.png,.jpg,.jpeg,.webp,.bmp,.gif,.pdf,.recconf,.xml">
+        </label>
+        <label class="btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+          Choose folder
+          <input id="folderInput" type="file" multiple webkitdirectory directory class="hidden">
+        </label>
+        <button type="button" class="btn" id="demoBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 3 14 9-14 9V3z"/></svg>
+          Try a sample page
+        </button>
+      </div>
+      <div class="chips">
+        <span class="chip">folder</span><span class="chip">.zip</span><span class="chip">.html</span><span class="chip">.mhtml</span>
+        <span class="chip">.png</span><span class="chip">.jpg</span><span class="chip">.pdf</span><span class="chip">.recconf</span>
+      </div>
+    </section>
+
+    <div class="statusbar" id="statusBar" role="status" aria-live="polite">
+      <span id="spinner" class="spinner hidden"></span>
+      <span id="status"></span>
+    </div>
+    <div id="warnBox"></div>
+
+    <!-- ================= workspace ================= -->
+    <div class="workspace">
+
+      <!-- ---------- left ---------- -->
+      <div class="col col-left">
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Documents</h2>
+            <span class="count" id="docCount">0</span>
+          </div>
+          <div class="card-body" style="padding:.55rem .9rem">
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:12.5px;color:var(--ink-2);cursor:pointer">
+              <input type="checkbox" id="hideEmpty" checked>
+              Hide helper frames with no fields
+            </label>
+          </div>
+          <div class="card-body flush">
+            <div id="fileEmpty" class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+              No pages loaded yet
+            </div>
+            <ul id="fileList" class="list"></ul>
+          </div>
+        </section>
+
+        <section class="card" id="docInfoCard">
+          <div class="card-head"><h2>Selected page</h2></div>
+          <div class="card-body">
+            <div id="docTitle" style="font-weight:600;font-size:13.5px;word-break:break-word"></div>
+            <div class="pill-row" id="docPills" style="margin-top:.4rem"></div>
+            <div id="docMeta" style="font-size:11.5px;color:var(--ink-3);margin-top:.4rem;word-break:break-all"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Fields found</h2>
+            <span class="count" id="fieldCount">0</span>
+          </div>
+          <div class="card-body">
+            <div class="search">
+              <input id="searchInput" class="inp" type="search" placeholder="Search: Created, Planned Dispatch…">
+              <button type="button" class="btn" id="searchBtn">Find</button>
+            </div>
+          </div>
+          <div class="card-body flush">
+            <div id="fieldEmpty" class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="7"/></svg>
+              Load an HTML page to see fields
+            </div>
+            <ul id="fieldList" class="list"></ul>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ---------- middle ---------- -->
+      <div class="col col-mid">
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Suggested rule</h2>
+            <span id="confPill" class="pill">no field selected</span>
+          </div>
+          <div class="card-body">
+
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="lbl" for="keyInput">Key</label>
+                <button type="button" class="copy-field" id="copyKeyBtn">Copy key</button>
+              </div>
+              <input id="keyInput" class="inp mono" type="text" autocomplete="off" placeholder="ops_radar_creationdate">
+            </div>
+
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="lbl" for="urlInput">URL filter</label>
+                <button type="button" class="copy-field" id="copyUrlBtn">Copy URL</button>
+              </div>
+              <input id="urlInput" class="inp mono" type="text" autocomplete="off" placeholder="runtime-app.powerplatform.com">
+              <input id="urlHint" type="hidden">
+            </div>
+
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="lbl" for="pathInput">XPath</label>
+                <button type="button" class="copy-field" id="copyPathBtn">Copy XPath</button>
+              </div>
+              <textarea id="pathInput" class="inp mono" rows="4" spellcheck="false" placeholder="Select a field on the left"></textarea>
+            </div>
+
+            <div class="stack" style="margin-top:.7rem">
+              <button type="button" class="btn" id="recheckBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                Recheck
+              </button>
+              <button type="button" class="btn" id="copyRuleBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy key, XPath &amp; URL
+              </button>
+              <button type="button" class="btn primary" id="acceptBtn" style="margin-left:auto">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Keep this rule
+              </button>
+            </div>
+
+            <div class="readout">
+              <div class="readout-head">
+                <span>What it matched</span>
+                <span id="matchBox" class="pill" style="margin-left:auto">—</span>
+              </div>
+              <div class="readout-body">
+                <div id="sampleBox" class="sample mono is-empty">Select a field to preview the extracted value.</div>
+                <p id="riskBox" class="note risk hidden"></p>
+                <p id="whyBox" class="note"></p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Other path options</h2>
+            <span class="count" id="altCount">0</span>
+          </div>
+          <div class="card-body">
+            <p class="hint">Click any option to use it. Higher score means safer.</p>
+            <ul id="altList" class="alts"></ul>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ---------- right ---------- -->
+      <div class="col col-right">
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Saved rules</h2>
+            <span class="count" id="ruleCount">0</span>
+          </div>
+          <div class="card-body flush">
+            <div id="rulesEmpty" class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Nothing kept yet
+            </div>
+            <ul id="rulesList" class="rules"></ul>
+          </div>
+          <div class="card-body">
+            <button type="button" class="btn primary block" id="exportBtn" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Download XML + CSV
+            </button>
+            <div class="stack" style="margin-top:.4rem">
+              <button type="button" class="btn sm" id="copyBtn">Copy XML</button>
+              <button type="button" class="btn sm ghost" id="clearBtn">Clear all</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>Screenshot &amp; PDF names</h2></div>
+          <div class="card-body">
+            <div class="alert warn" style="margin-bottom:.6rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+              <span>An image has no page structure. OCR can suggest <strong>field names</strong> only, never an XPath.</span>
+            </div>
+            <pre id="ocrBox" class="block mono">Drop a screenshot or PDF to suggest field names.</pre>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>Built-in checks</h2></div>
+          <div class="card-body">
+            <button type="button" class="btn block" id="testBtn">Run self-tests</button>
+            <ul id="testList" class="tests"></ul>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    Bundled offline engines: JSZip (MIT), Tesseract.js (Apache-2.0), PDF.js (Apache-2.0). Customer files never leave this browser.
+  </footer>
+</div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/tesseract/tesseract.min.js"></script>
+<script src="js/xpath.js"></script>
+<script src="js/ingest.js"></script>
+<script src="js/folder.js"></script>
+<script src="js/export.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/selftest.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
