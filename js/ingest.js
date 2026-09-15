@@ -235,12 +235,48 @@
 
     report.docs.sort((a, b) => b.richness - a.richness);
     report.usefulDocs = report.docs.filter((d) => !d.isHelper).length;
+    report.missingFrames = missingFrames(report.docs);
+    if (report.missingFrames.length) {
+      report.warnings.push(
+        "This page embeds " + report.missingFrames.length + " sub-page(s) that were not uploaded: " +
+        report.missingFrames.slice(0, 3).join(", ") +
+        (report.missingFrames.length > 3 ? ", and more" : "") +
+        ". Saved pages keep iframes as separate files in the _files folder, and a lone HTML file cannot reach them. " +
+        "Add the whole folder instead if the fields you need are missing."
+      );
+    }
     return report;
+  }
+
+  /* A saved page stores each iframe as its own file under _files. Dropping only the
+     outer .html leaves those unreachable, which looks like "the tool found nothing". */
+  const FRAME_NOISE = /(about:blank|^data:|tokenfactory|authorize|checksession|silent|signin|logout|saved_resource|whatfix|pixel|beacon|blank\.html?$|^\/?ads?\b)/i;
+
+  function frameBasename(src) {
+    let s = String(src || "").split("#")[0].split("?")[0];
+    try { s = decodeURIComponent(s); } catch (e) { /* keep raw */ }
+    const seg = s.split("/").filter(Boolean).pop() || "";
+    return seg.toLowerCase();
+  }
+
+  function missingFrames(docs) {
+    const have = new Set(docs.map((d) => frameBasename(d.name)).filter(Boolean));
+    const missing = new Set();
+    docs.forEach((d) => {
+      (d.iframes || []).forEach((f) => {
+        const src = String(f.src || "").trim();
+        if (!src || /^(https?:|\/\/)/i.test(src) || FRAME_NOISE.test(src)) return;
+        const base = frameBasename(src);
+        if (base && !have.has(base) && isHtmlKind(base)) missing.add(base);
+      });
+    });
+    return Array.from(missing);
   }
 
   global.WxIngest = {
     kindOf,
     ingestFiles,
+    missingFrames,
     parseHtmlDocument,
     readRecconf,
     fileName,

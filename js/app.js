@@ -512,7 +512,7 @@
           });
         } else {
           busy(false, "Nothing readable was dropped.");
-          $("warnBox").innerHTML = alertHtml("bad", "No readable files were found. Drop a folder containing HTML files, or choose it with the Choose folder button.");
+          $("warnBox").innerHTML = alertHtml("bad", "No readable files were found. Drop a folder containing HTML files, or pick one from the Add pages button.");
         }
         return;
       }
@@ -533,8 +533,65 @@
     });
   }
 
+  /* A single file input cannot offer both files and folders, so one button opens
+     a chooser that routes to the right hidden input. */
+  function bindAddMenu() {
+    const btn = $("addBtn");
+    const menu = $("addMenu");
+    const items = Array.from(menu.querySelectorAll(".add-menu-item"));
+
+    function setOpen(open, moveFocus) {
+      const wasOpen = !menu.classList.contains("hidden");
+      menu.classList.toggle("hidden", !open);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (!moveFocus) return;
+      if (open) items[0].focus();
+      else if (wasOpen) btn.focus();
+    }
+    const isOpen = () => !menu.classList.contains("hidden");
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setOpen(!isOpen(), false);
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setOpen(true, true);
+      }
+    });
+
+    $("pickFolderBtn").addEventListener("click", () => {
+      setOpen(false);
+      $("folderInput").click();
+    });
+    $("pickFilesBtn").addEventListener("click", () => {
+      setOpen(false);
+      $("fileInput").click();
+    });
+
+    menu.addEventListener("keydown", (e) => {
+      const at = items.indexOf(document.activeElement);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false, true);
+      } else if (e.key === "ArrowDown" && at > -1) {
+        e.preventDefault();
+        items[(at + 1) % items.length].focus();
+      } else if (e.key === "ArrowUp" && at > -1) {
+        e.preventDefault();
+        items[(at - 1 + items.length) % items.length].focus();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (isOpen() && !menu.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+  }
+
   function init() {
     bindDrop();
+    bindAddMenu();
     $("demoBtn").addEventListener("click", loadDemo);
     $("hideEmpty").addEventListener("change", renderDocs);
     $("acceptBtn").addEventListener("click", acceptRule);

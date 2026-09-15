@@ -53,6 +53,9 @@
     tests.push(assert(WxIngest.kindOf("shot.png") === "image", "Image kind"));
     tests.push(assert(WxIngest.kindOf("pack.zip") === "zip", "Zip kind"));
     tests.push(assert(!!document.getElementById("folderInput"), "Folder picker is available"));
+    tests.push(assert(!!document.getElementById("addBtn"), "Single upload button is available"));
+    tests.push(assert(!!document.getElementById("pickFolderBtn"), "Folder route is available"));
+    tests.push(assert(!!document.getElementById("pickFilesBtn"), "File route is available"));
     tests.push(assert(!!document.getElementById("copyKeyBtn"), "Key copy control is available"));
     tests.push(assert(!!document.getElementById("copyUrlBtn"), "URL copy control is available"));
     tests.push(assert(!!document.getElementById("copyPathBtn"), "XPath copy control is available"));

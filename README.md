@@ -53,15 +53,17 @@ That writes `wea-single.html`. Open it in Chrome or Edge (double-click is fine).
 | PDF | Same as screenshot if it is a scan; text PDFs give labels only |
 | Existing `.recconf` | Merge exported rules into it |
 
-Chrome: **Save as** → **Webpage, Complete**. Use **Choose folder** to select the saved page folder, or zip the `.html` and its `_files` folder.
+Chrome: **Save as** → **Webpage, Complete**. Add the saved page **folder**, or zip the `.html` together with its `_files` folder.
 
-The page presents one upload area with two browser-native pickers:
+Everything goes through one **Add pages** button, which asks whether you are adding a folder or files:
 
-- **Add HTML or ZIP** selects individual files, including ZIP archives.
-- **Choose folder** recursively scans a directory.
+- **A folder** recursively scans a directory, including the `_files` subfolder.
+- **Files or a ZIP** selects individual files, including ZIP archives.
 - Drag and drop accepts files, ZIP archives, and folders in the same area.
 
-A web browser does not provide one native picker that selects both files and folders, so the two chooser buttons share one upload workflow.
+A browser cannot offer one native picker that selects both files and folders, so the single button routes to the matching picker.
+
+Prefer the folder. A saved page keeps its iframes as separate files under `_files`, and a browser cannot follow those relative links from a lone `.html`. Many enterprise apps, including Pulse and Power Apps, render the real data grid inside an iframe, so a single-file upload shows only the outer shell.
 
 Folder mode:
 
