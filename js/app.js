@@ -10,7 +10,20 @@
     recconfRaw: ""
   };
 
+  const BUILD = "3";
+
   const $ = (id) => document.getElementById(id);
+
+  /* A cached index.html paired with fresh scripts must degrade, not throw
+     halfway through an upload. */
+  function setHidden(id, hidden) {
+    const el = $(id);
+    if (el) el.classList.toggle("hidden", hidden);
+  }
+  function on(id, event, fn) {
+    const el = $(id);
+    if (el) el.addEventListener(event, fn);
+  }
 
   const ICON = {
     page: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
@@ -405,7 +418,7 @@
       renderFields();
       clearDetail();
     }
-    $("resetBtn").classList.toggle("hidden", !report.docs.length && !report.images.length && !report.pdfs.length);
+    setHidden("resetBtn", !report.docs.length && !report.images.length && !report.pdfs.length);
 
     for (const img of report.pendingImages) {
       try {
@@ -465,6 +478,18 @@
       ". Now " + report.docs.length + " page(s) loaded.";
   }
 
+  /* index.html and the scripts are cached separately, so they can briefly
+     disagree after a deploy. Say so rather than half-working. */
+  function checkBuild() {
+    const stamp = $("buildId");
+    const shown = stamp ? stamp.textContent.trim() : "";
+    if (shown === BUILD) return;
+    $("warnBox").innerHTML = alertHtml("bad",
+      "Your browser is showing an older copy of this page" +
+      (shown ? " (build " + escapeHtml(shown) + ", the code is build " + BUILD + ")" : "") +
+      ". Reload with <strong>Cmd+Shift+R</strong> on Mac or <strong>Ctrl+Shift+R</strong> on Windows, then try again.", true);
+  }
+
   function startOver() {
     state.report = null;
     state.accepted = [];
@@ -476,7 +501,7 @@
     $("urlInput").value = "";
     $("warnBox").innerHTML = "";
     $("drop").classList.remove("compact");
-    $("resetBtn").classList.add("hidden");
+    setHidden("resetBtn", true);
     renderDocs();
     renderRules();
     renderFields();
@@ -584,6 +609,7 @@
   function bindAddMenu() {
     const btn = $("addBtn");
     const menu = $("addMenu");
+    if (!btn || !menu) return;
     const items = Array.from(menu.querySelectorAll(".add-menu-item"));
 
     function setOpen(open, moveFocus) {
@@ -607,11 +633,11 @@
       }
     });
 
-    $("pickFolderBtn").addEventListener("click", () => {
+    on("pickFolderBtn", "click", () => {
       setOpen(false);
       $("folderInput").click();
     });
-    $("pickFilesBtn").addEventListener("click", () => {
+    on("pickFilesBtn", "click", () => {
       setOpen(false);
       $("fileInput").click();
     });
@@ -636,10 +662,11 @@
   }
 
   function init() {
+    checkBuild();
     bindDrop();
     bindAddMenu();
     $("demoBtn").addEventListener("click", loadDemo);
-    $("resetBtn").addEventListener("click", startOver);
+    on("resetBtn", "click", startOver);
     $("hideEmpty").addEventListener("change", renderDocs);
     $("acceptBtn").addEventListener("click", acceptRule);
     $("searchBtn").addEventListener("click", searchLabel);

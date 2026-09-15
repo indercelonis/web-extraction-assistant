@@ -35,7 +35,7 @@ assert.ok(
 );
 
 ["addBtn", "pickFilesBtn", "pickFolderBtn"].forEach((id) => {
-  assert.ok(app.includes(`$("${id}")`), `${id} must be wired`);
+  assert.ok(app.includes(`$("${id}")`) || app.includes(`on("${id}"`), `${id} must be wired`);
 });
 assert.ok(app.includes('$("folderInput").click()'), "Folder route must open the directory picker");
 assert.ok(app.includes('$("fileInput").click()'), "File route must open the file picker");
@@ -43,7 +43,7 @@ assert.ok(app.includes("bindAddMenu()"), "The add menu must be initialised");
 
 // Uploads must accumulate, so a folder and a stray file can be combined.
 assert.ok(doc.getElementById("resetBtn").classList.contains("hidden"), "Start over begins hidden");
-assert.ok(app.includes('$("resetBtn").addEventListener("click", startOver)'), "Start over must be wired");
+assert.ok(app.includes('on("resetBtn", "click", startOver)'), "Start over must be wired");
 assert.notStrictEqual(doc.getElementById("resetBtn"), doc.getElementById("clearBtn"),
   "Start over must not collide with the export Clear all");
 assert.ok(app.includes("WxIngest.mergeReports(state.report, fresh)"), "Uploads must merge into the session");
@@ -53,6 +53,21 @@ assert.ok(handleFiles.length > 200, "handleFiles body must be found");
 assert.ok(!handleFiles.includes("state.accepted = []"), "A further upload must not discard saved rules");
 assert.ok(!handleFiles.includes("state.ocr = []"), "A further upload must not discard OCR results");
 assert.ok(handleFiles.includes("report.pendingImages"), "Only newly added images may be re-OCRed");
+
+// index.html and the scripts are cached separately, so they must be versioned together.
+const build = doc.getElementById("buildId");
+assert.ok(build, "The page must carry a build stamp");
+const stamp = build.textContent.trim();
+assert.ok(app.includes(`const BUILD = "${stamp}"`), "app.js must agree with the page build stamp");
+Array.from(doc.querySelectorAll('script[src^="js/"], link[rel="stylesheet"]')).forEach((el) => {
+  const url = el.getAttribute("src") || el.getAttribute("href");
+  assert.ok(url.endsWith("?v=" + stamp), `${url} must be cache-busted to build ${stamp}`);
+});
+assert.ok(app.includes("checkBuild()"), "A stale page must be reported to the user");
+
+// Controls added after launch must not throw on a cached page.
+assert.ok(!app.includes('$("resetBtn").classList'), "resetBtn must be accessed defensively");
+assert.ok(!app.includes('$("resetBtn").addEventListener'), "resetBtn must be bound defensively");
 
 ["copyKeyBtn", "copyUrlBtn", "copyPathBtn", "copyRuleBtn"].forEach((id) => {
   assert.ok(app.includes(`$("${id}").addEventListener`), `${id} must be wired`);
