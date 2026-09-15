@@ -10,7 +10,7 @@
     recconfRaw: ""
   };
 
-  const BUILD = "3";
+  const BUILD = "4";
 
   const $ = (id) => document.getElementById(id);
 

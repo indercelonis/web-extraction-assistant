@@ -59,7 +59,7 @@ Everything goes through one **Add pages** button, which asks whether you are add
 
 - **A folder** recursively scans a directory, including the `_files` subfolder. One folder per pick.
 - **Files or a ZIP** selects any number of files, including ZIP archives.
-- Drag and drop accepts a mixed selection of files, ZIP archives, and folders in one gesture.
+- Drag and drop accepts a mixed selection of files, ZIP archives, and folders in one gesture. This is the only way to combine a file and a folder in a single action; a browser dialog offers one or the other. Files dropped loose keep their type, while files found inside a dropped folder are narrowed to HTML.
 
 A browser cannot offer one native picker that selects both files and folders, so the single button routes to the matching picker.
 

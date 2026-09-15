@@ -139,8 +139,10 @@
       return report;
     }
 
+    // A drop can mix folders with loose files. Only what came out of a folder is
+    // narrowed to HTML; a ZIP or screenshot dropped alongside it was chosen on purpose.
     const candidates = folderMode
-      ? files.filter((file) => isHtmlKind(fileName(file), file.type))
+      ? files.filter((file) => file._loose || isHtmlKind(fileName(file), file.type))
       : files;
     if (folderMode) report.input.ignoredFiles += files.length - candidates.length;
 

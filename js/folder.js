@@ -10,16 +10,19 @@
     return /\.(?:html?|xhtml)$/i.test(String(name || ""));
   }
 
-  function tagFile(file, relativePath) {
+  /* A file dropped on its own is "loose": it was chosen deliberately, so it keeps
+     its type. Files found by walking into a folder are filtered down to HTML. */
+  function tagFile(file, relativePath, loose) {
     const clean = safeSegment(relativePath) || file.name;
-    try {
-      Object.defineProperty(file, "_relativePath", {
-        configurable: true,
-        value: clean
-      });
-    } catch (_) {
-      file._relativePath = clean;
-    }
+    const set = (key, value) => {
+      try {
+        Object.defineProperty(file, key, { configurable: true, value });
+      } catch (_) {
+        file[key] = value;
+      }
+    };
+    set("_relativePath", clean);
+    if (loose) set("_loose", true);
     return file;
   }
 
@@ -49,7 +52,7 @@
         return;
       }
       try {
-        result.files.push(tagFile(await entryFile(entry), current));
+        result.files.push(tagFile(await entryFile(entry), current, !inDirectory));
       } catch (err) {
         result.errors.push(current + " could not be read: " + (err.message || String(err)));
       }
@@ -92,7 +95,7 @@
         return;
       }
       try {
-        result.files.push(tagFile(await handle.getFile(), current));
+        result.files.push(tagFile(await handle.getFile(), current, !inDirectory));
       } catch (err) {
         result.errors.push(current + " could not be read: " + (err.message || String(err)));
       }
@@ -145,7 +148,7 @@
         const file = item.getAsFile && item.getAsFile();
         if (file) {
           result.totalFiles += 1;
-          result.files.push(file);
+          result.files.push(tagFile(file, file.name, true));
         }
       } catch (err) {
         result.errors.push("A dropped item could not be read: " + (err.message || String(err)));
@@ -154,7 +157,7 @@
 
     // Some browsers expose files but not item traversal.
     if (!result.files.length && !result.hadDirectory && dataTransfer && dataTransfer.files) {
-      result.files = Array.from(dataTransfer.files);
+      result.files = Array.from(dataTransfer.files).map((f) => tagFile(f, f.name, true));
       result.totalFiles = result.files.length;
     }
     if (result.files.length >= MAX_DIRECTORY_FILES) result.truncated = true;

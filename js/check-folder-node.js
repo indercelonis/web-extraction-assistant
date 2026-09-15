@@ -148,6 +148,40 @@ async function run() {
   check(dropped.files.some((f) => f._relativePath === "customer-save/outer_files/V1.html"), "Dropped nested path is preserved");
   check(dropped.errors.some((e) => /locked\.html.*denied/i.test(e)), "Unreadable dropped entry is reported", dropped.errors.join(" | "));
 
+  // Dragging a page and its _files folder together is the only way a browser lets
+  // you mix the two in one action, so it has to survive the folder-mode filter.
+  const looseHtml = fakeFile("Pulse-Creation date.html", "<title>Shell</title>");
+  const looseZip = fakeFile("extra.zip", "x", { type: "application/zip" });
+  const assetFolder = directoryEntry("Pulse-Creation date_files", [
+    fileEntry("global_actions_list.html", fakeFile("global_actions_list.html", "<title>Grid</title>")),
+    fileEntry("main.css", fakeFile("main.css", "body{}"))
+  ]);
+  const mixedDrop = await WxFolder.collectDroppedFiles({
+    items: [
+      { kind: "file", webkitGetAsEntry: () => fileEntry("Pulse-Creation date.html", looseHtml) },
+      { kind: "file", webkitGetAsEntry: () => fileEntry("extra.zip", looseZip) },
+      { kind: "file", webkitGetAsEntry: () => assetFolder }
+    ]
+  });
+  check(mixedDrop.hadDirectory, "A mixed drop is treated as a folder drop");
+  check(mixedDrop.files.length === 3, "A mixed drop keeps both loose files and the folder page", mixedDrop.files.length);
+  check(mixedDrop.ignoredFiles === 1, "Only assets inside the folder are ignored", mixedDrop.ignoredFiles);
+  check(mixedDrop.files.filter((f) => f._loose).length === 2, "Loose files are marked as deliberately chosen");
+
+  const mixedReport = await WxIngest.ingestFiles(mixedDrop.files, {
+    mode: "folder",
+    ignoredFiles: mixedDrop.ignoredFiles
+  });
+  check(mixedReport.docs.length === 2, "A mixed drop loads the page and its iframe", mixedReport.docs.length);
+  check(
+    mixedReport.docs.some((d) => /Pulse-Creation date\.html$/.test(d.name)) &&
+      mixedReport.docs.some((d) => /global_actions_list\.html$/.test(d.name)),
+    "Both the dropped file and the folder page are present",
+    mixedReport.docs.map((d) => d.name).join(", ")
+  );
+  check(mixedReport.missingFrames.length === 0 || !mixedReport.missingFrames.includes("global_actions_list.html"),
+    "The frame supplied by the folder is not reported missing");
+
   const assetsOnly = directoryEntry("assets", [
     fileEntry("one.png", fakeFile("one.png", "x")),
     fileEntry("two.css", fakeFile("two.css", "x"))
