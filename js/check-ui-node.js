@@ -13,7 +13,7 @@ const doc = dom.window.document;
 const ids = Array.from(doc.querySelectorAll("[id]")).map((el) => el.id);
 assert.strictEqual(new Set(ids).size, ids.length, "Every element ID must be unique");
 
-["fileInput", "folderInput", "addBtn", "addMenu", "pickFilesBtn", "pickFolderBtn", "copyKeyBtn", "copyUrlBtn", "copyPathBtn", "copyRuleBtn"].forEach((id) => {
+["fileInput", "folderInput", "addBtn", "addMenu", "pickFilesBtn", "pickFolderBtn", "resetBtn", "copyKeyBtn", "copyUrlBtn", "copyPathBtn", "copyRuleBtn"].forEach((id) => {
   assert.ok(doc.getElementById(id), `${id} must exist`);
 });
 
@@ -23,7 +23,7 @@ assert.ok(doc.getElementById("folderInput").hasAttribute("webkitdirectory"), "Fo
 
 // One visible button must cover files, folders and ZIPs.
 const uploadButtons = Array.from(doc.querySelectorAll(".drop-actions > .btn, .drop-actions > .add-menu-wrap > .btn"))
-  .filter((el) => el.id !== "demoBtn");
+  .filter((el) => el.id !== "demoBtn" && el.id !== "resetBtn");
 assert.strictEqual(uploadButtons.length, 1, "The dropzone must expose exactly one upload button");
 assert.strictEqual(uploadButtons[0].id, "addBtn", "That button must be addBtn");
 assert.strictEqual(doc.getElementById("addBtn").getAttribute("aria-expanded"), "false", "Menu must start collapsed");
@@ -40,6 +40,19 @@ assert.ok(
 assert.ok(app.includes('$("folderInput").click()'), "Folder route must open the directory picker");
 assert.ok(app.includes('$("fileInput").click()'), "File route must open the file picker");
 assert.ok(app.includes("bindAddMenu()"), "The add menu must be initialised");
+
+// Uploads must accumulate, so a folder and a stray file can be combined.
+assert.ok(doc.getElementById("resetBtn").classList.contains("hidden"), "Start over begins hidden");
+assert.ok(app.includes('$("resetBtn").addEventListener("click", startOver)'), "Start over must be wired");
+assert.notStrictEqual(doc.getElementById("resetBtn"), doc.getElementById("clearBtn"),
+  "Start over must not collide with the export Clear all");
+assert.ok(app.includes("WxIngest.mergeReports(state.report, fresh)"), "Uploads must merge into the session");
+
+const handleFiles = app.slice(app.indexOf("async function handleFiles"), app.indexOf("function addSummary"));
+assert.ok(handleFiles.length > 200, "handleFiles body must be found");
+assert.ok(!handleFiles.includes("state.accepted = []"), "A further upload must not discard saved rules");
+assert.ok(!handleFiles.includes("state.ocr = []"), "A further upload must not discard OCR results");
+assert.ok(handleFiles.includes("report.pendingImages"), "Only newly added images may be re-OCRed");
 
 ["copyKeyBtn", "copyUrlBtn", "copyPathBtn", "copyRuleBtn"].forEach((id) => {
   assert.ok(app.includes(`$("${id}").addEventListener`), `${id} must be wired`);

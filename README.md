@@ -57,11 +57,13 @@ Chrome: **Save as** → **Webpage, Complete**. Add the saved page **folder**, or
 
 Everything goes through one **Add pages** button, which asks whether you are adding a folder or files:
 
-- **A folder** recursively scans a directory, including the `_files` subfolder.
-- **Files or a ZIP** selects individual files, including ZIP archives.
-- Drag and drop accepts files, ZIP archives, and folders in the same area.
+- **A folder** recursively scans a directory, including the `_files` subfolder. One folder per pick.
+- **Files or a ZIP** selects any number of files, including ZIP archives.
+- Drag and drop accepts a mixed selection of files, ZIP archives, and folders in one gesture.
 
 A browser cannot offer one native picker that selects both files and folders, so the single button routes to the matching picker.
+
+**Uploads accumulate.** Each pick is added to the session rather than replacing it, so a folder and a stray file can be combined across several picks, and saved rules survive. A page already loaded is skipped rather than duplicated, matched on filename and contents so the same page picked once on its own and once inside a folder counts as one. **Start over** clears everything.
 
 Prefer the folder. A saved page keeps its iframes as separate files under `_files`, and a browser cannot follow those relative links from a lone `.html`. Many enterprise apps, including Pulse and Power Apps, render the real data grid inside an iframe, so a single-file upload shows only the outer shell.
 

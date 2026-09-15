@@ -370,44 +370,51 @@
     busy(true, opts.mode === "folder" ? "Scanning folder for HTML files…" : "Reading files…");
     $("warnBox").innerHTML = "";
 
-    let report;
+    let fresh;
     try {
-      report = await WxIngest.ingestFiles(files, opts);
+      fresh = await WxIngest.ingestFiles(files, opts);
     } catch (err) {
       busy(false, "Could not read this selection.");
       $("warnBox").innerHTML = alertHtml("bad", "The selection could not be read: " + (err.message || String(err)));
       return;
     }
-    if (opts.errors && opts.errors.length) report.errors.push.apply(report.errors, opts.errors);
+    if (opts.errors && opts.errors.length) fresh.errors.push.apply(fresh.errors, opts.errors);
     if (opts.truncated) {
-      report.warnings.push("The folder contains more than " + WxFolder.MAX_DIRECTORY_FILES + " files. Only the first files were checked.");
+      fresh.warnings.push("The folder contains more than " + WxFolder.MAX_DIRECTORY_FILES + " files. Only the first files were checked.");
     }
+
+    // Remember where the user was, so adding more pages does not move them.
+    const wasOn = state.report && state.report.docs[state.docIndex]
+      ? state.report.docs[state.docIndex].name
+      : null;
+
+    const report = WxIngest.mergeReports(state.report, fresh);
     state.report = report;
-    state.accepted = [];
-    state.ocr = [];
-    state.docIndex = -1;
+    state.ocr = state.ocr || [];
     if (report.recconfs[0] && report.recconfs[0].raw) state.recconfRaw = report.recconfs[0].raw;
 
     renderDocs();
     renderRules();
 
     if (report.docs.length) {
-      selectDoc(pickBestDoc());
+      const stillThere = wasOn ? report.docs.findIndex((d) => d.name === wasOn) : -1;
+      selectDoc(stillThere > -1 ? stillThere : pickBestDoc());
       $("drop").classList.add("compact");
     } else {
       state.fields = [];
       renderFields();
       clearDetail();
     }
+    $("resetBtn").classList.toggle("hidden", !report.docs.length && !report.images.length && !report.pdfs.length);
 
-    for (const img of report.images) {
+    for (const img of report.pendingImages) {
       try {
         state.ocr.push(await WxOcr.ocrImage(img, (m) => busy(true, m)));
       } catch (err) {
         report.warnings.push("OCR failed for " + img.name + ": " + err.message);
       }
     }
-    for (const pdf of report.pdfs) {
+    for (const pdf of report.pendingPdfs) {
       try {
         state.ocr.push(await WxOcr.readPdf(pdf, (m) => busy(true, m)));
       } catch (err) {
@@ -419,6 +426,14 @@
     const notes = [];
     if (report.errors.length) notes.push(alertHtml("bad", report.errors.join(" ")));
     if (report.warnings.length) notes.push(alertHtml("warn", report.warnings.join(" ")));
+    if (report.missingFrames.length) {
+      notes.push(alertHtml("warn",
+        "These pages embed " + report.missingFrames.length + " sub-page(s) that are not loaded: " +
+        escapeHtml(report.missingFrames.slice(0, 3).join(", ")) +
+        (report.missingFrames.length > 3 ? ", and more" : "") +
+        ". A saved page keeps its iframes as separate files in the <strong>_files</strong> folder, and a lone HTML file cannot reach them. " +
+        "Add the folder as well - uploads stack up, so nothing you have already loaded is lost.", true));
+    }
     if (!report.docs.length && (report.images.length || report.pdfs.length)) {
       notes.push(alertHtml("info", "Only images or PDFs were loaded. Add the saved <strong>HTML</strong> to get XPaths and URL filters.", true));
     }
@@ -428,16 +443,47 @@
     }
     $("warnBox").innerHTML = notes.join("");
 
-    if (report.input.mode === "folder" && report.docs.length) {
-      busy(
-        false,
-        "Ready. Processed " + report.docs.length + " HTML page(s)" +
-          (report.input.ignoredFiles ? " and ignored " + report.input.ignoredFiles + " other file(s)." : ".")
-      );
-    } else {
-      busy(false, report.docs.length ? "Ready. Pick a field on the left." : "No HTML found.");
-    }
+    busy(false, addSummary(report));
     setSteps();
+  }
+
+  function addSummary(report) {
+    if (!report.docs.length) return "No HTML found.";
+    const ignored = report.input.ignoredFiles
+      ? ", ignored " + report.input.ignoredFiles + " non-HTML file(s)"
+      : "";
+    const dupes = report.input.duplicateFiles
+      ? ", skipped " + report.input.duplicateFiles + " already loaded"
+      : "";
+    if (!report.carriedDocs) {
+      return "Ready. " + report.docs.length + " page(s) loaded" + ignored + ". Pick a field on the left.";
+    }
+    if (!report.addedDocs) {
+      return "Nothing new" + dupes + ". Still " + report.docs.length + " page(s) loaded.";
+    }
+    return "Added " + report.addedDocs + " page(s)" + ignored + dupes +
+      ". Now " + report.docs.length + " page(s) loaded.";
+  }
+
+  function startOver() {
+    state.report = null;
+    state.accepted = [];
+    state.ocr = [];
+    state.fields = [];
+    state.docIndex = -1;
+    state.fieldIndex = -1;
+    state.recconfRaw = "";
+    $("urlInput").value = "";
+    $("warnBox").innerHTML = "";
+    $("drop").classList.remove("compact");
+    $("resetBtn").classList.add("hidden");
+    renderDocs();
+    renderRules();
+    renderFields();
+    renderOcr();
+    clearDetail();
+    setSteps();
+    busy(false, "Cleared. Add pages to start again.");
   }
 
   function renderOcr() {
@@ -593,6 +639,7 @@
     bindDrop();
     bindAddMenu();
     $("demoBtn").addEventListener("click", loadDemo);
+    $("resetBtn").addEventListener("click", startOver);
     $("hideEmpty").addEventListener("change", renderDocs);
     $("acceptBtn").addEventListener("click", acceptRule);
     $("searchBtn").addEventListener("click", searchLabel);

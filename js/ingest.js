@@ -219,8 +219,15 @@
         report.warnings.push(report.input.duplicateFiles + " duplicate file path(s) were ignored.");
       }
     }
-    const HELPER = /(TokenFactoryIframe|authorize|checksession|blank|silent|signin|logout|pixel|beacon|ads?)[^/]*\.html?$/i;
+    report.pendingImages = report.images.slice();
+    report.pendingPdfs = report.pdfs.slice();
+    decorateDocs(report);
+    return report;
+  }
 
+  const HELPER = /(TokenFactoryIframe|authorize|checksession|blank|silent|signin|logout|pixel|beacon|ads?)[^/]*\.html?$/i;
+
+  function decorateDocs(report) {
     report.docs.forEach((d) => {
       d.kindLabel = d.isIframe ? "iframe / inner page" : "outer page";
       d.urlHint = WxPath.inferUrl(d.sourceUrl, d.isIframe ? "iframe" : "page");
@@ -236,15 +243,6 @@
     report.docs.sort((a, b) => b.richness - a.richness);
     report.usefulDocs = report.docs.filter((d) => !d.isHelper).length;
     report.missingFrames = missingFrames(report.docs);
-    if (report.missingFrames.length) {
-      report.warnings.push(
-        "This page embeds " + report.missingFrames.length + " sub-page(s) that were not uploaded: " +
-        report.missingFrames.slice(0, 3).join(", ") +
-        (report.missingFrames.length > 3 ? ", and more" : "") +
-        ". Saved pages keep iframes as separate files in the _files folder, and a lone HTML file cannot reach them. " +
-        "Add the whole folder instead if the fields you need are missing."
-      );
-    }
     return report;
   }
 
@@ -273,9 +271,83 @@
     return Array.from(missing);
   }
 
+  /* Picking a file and then the folder that contains it delivers the same page under
+     two different paths, so pages are matched on filename plus contents, not path. */
+  function keepDocs(existing, incoming, counters) {
+    const pathOf = (d) => String(d.name || "").toLowerCase();
+    const baseOf = (d) => pathOf(d).split("/").pop();
+    const paths = new Set(existing.map(pathOf));
+    const byBase = new Map();
+    const remember = (d) => {
+      const b = baseOf(d);
+      if (!byBase.has(b)) byBase.set(b, []);
+      byBase.get(b).push(d.html || "");
+    };
+    existing.forEach(remember);
+
+    const added = [];
+    incoming.forEach((d) => {
+      const samePath = paths.has(pathOf(d));
+      const sameFile = (byBase.get(baseOf(d)) || []).some((html) => html === (d.html || ""));
+      if (samePath || sameFile) {
+        counters.duplicateFiles += 1;
+        return;
+      }
+      paths.add(pathOf(d));
+      remember(d);
+      added.push(d);
+    });
+    return added;
+  }
+
+  /* Every upload adds to the session instead of replacing it, so a folder and a
+     stray file can be combined across several picks. Warnings, errors and the
+     input counters describe the newest batch; the collections are cumulative. */
+  function mergeReports(prev, next) {
+    if (!prev) {
+      next.addedDocs = next.docs.length;
+      next.carriedDocs = 0;
+      return decorateDocs(next);
+    }
+    const keep = (existing, incoming, nameOf) => {
+      const seen = new Set(existing.map((x) => String(nameOf(x) || "").toLowerCase()));
+      const added = [];
+      incoming.forEach((x) => {
+        const id = String(nameOf(x) || "").toLowerCase();
+        if (id && seen.has(id)) {
+          next.input.duplicateFiles += 1;
+          return;
+        }
+        if (id) seen.add(id);
+        added.push(x);
+      });
+      return added;
+    };
+
+    const byName = (x) => x.name;
+    const newDocs = keepDocs(prev.docs, next.docs, next.input);
+    const newImages = keep(prev.images, next.images, byName);
+    const newPdfs = keep(prev.pdfs, next.pdfs, byName);
+    const newRecconfs = keep(prev.recconfs, next.recconfs, byName);
+
+    next.addedDocs = newDocs.length;
+    next.carriedDocs = prev.docs.length;
+    next.docs = prev.docs.concat(newDocs);
+    next.images = prev.images.concat(newImages);
+    next.pdfs = prev.pdfs.concat(newPdfs);
+    next.recconfs = prev.recconfs.concat(newRecconfs);
+    next.pendingImages = newImages;
+    next.pendingPdfs = newPdfs;
+
+    // A folder added later can satisfy frames the earlier file was missing.
+    decorateDocs(next);
+    return next;
+  }
+
   global.WxIngest = {
     kindOf,
     ingestFiles,
+    mergeReports,
     missingFrames,
     parseHtmlDocument,
     readRecconf,

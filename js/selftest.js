@@ -56,6 +56,8 @@
     tests.push(assert(!!document.getElementById("addBtn"), "Single upload button is available"));
     tests.push(assert(!!document.getElementById("pickFolderBtn"), "Folder route is available"));
     tests.push(assert(!!document.getElementById("pickFilesBtn"), "File route is available"));
+    tests.push(assert(!!document.getElementById("resetBtn"), "Start over is available"));
+    tests.push(assert(typeof WxIngest.mergeReports === "function", "Uploads accumulate across picks"));
     tests.push(assert(!!document.getElementById("copyKeyBtn"), "Key copy control is available"));
     tests.push(assert(!!document.getElementById("copyUrlBtn"), "URL copy control is available"));
     tests.push(assert(!!document.getElementById("copyPathBtn"), "XPath copy control is available"));
