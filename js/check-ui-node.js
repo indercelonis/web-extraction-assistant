@@ -69,6 +69,15 @@ Array.from(doc.querySelectorAll('script[src^="js/"], link[rel="stylesheet"]')).f
 });
 assert.ok(app.includes("checkBuild()"), "A stale page must be reported to the user");
 
+// A page cached whole is self-consistent, so the build must also be checked against the server.
+const version = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
+assert.strictEqual(version.build, stamp, "version.json must match the page build stamp");
+assert.ok(doc.getElementById("updateBox"), "There must be somewhere to announce a new build");
+assert.ok(app.includes('fetch("version.json'), "The app must ask the server for the current build");
+assert.ok(app.includes('cache: "no-store"'), "That check must not be served from cache");
+assert.ok(app.includes("data-action='reload'"), "The update notice must offer a reload");
+
+
 // Controls added after launch must not throw on a cached page.
 assert.ok(!app.includes('$("resetBtn").classList'), "resetBtn must be accessed defensively");
 assert.ok(!app.includes('$("resetBtn").addEventListener'), "resetBtn must be bound defensively");

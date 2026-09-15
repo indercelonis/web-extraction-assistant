@@ -95,19 +95,23 @@ JSDOM.fromFile(path.join(root, "index.html"), {
       assert.ok(savedRules >= 1, "A rule was saved");
 
       // 2. Now the folder, which also carries non-HTML assets.
+      // Real saves bury the app page among login and token frames.
+      const stub = "<html><body></body></html>";
       feed($("folderInput"), [
         make("Pulse.html", SHELL, "text/html", "Pulse_files_root/Pulse.html"),
+        make("TokenFactoryIframe.html", stub, "text/html", "Pulse_files_root/Pulse_files/TokenFactoryIframe.html"),
+        make("authorize.html", stub, "text/html", "Pulse_files_root/Pulse_files/authorize.html"),
         make("global_actions_list.html", GRID, "text/html", "Pulse_files_root/Pulse_files/global_actions_list.html"),
         make("main.css", STYLE, "text/css", "Pulse_files_root/Pulse_files/main.css")
       ]);
       await settle(window, 40);
 
-      assert.strictEqual(pages(), 2, "The folder adds the grid page and keeps the first file");
+      assert.strictEqual(pages(), 4, "The folder adds its pages and keeps the first file");
       assert.ok(!/not loaded/.test($("warnBox").textContent),
         "The missing sub-page warning clears once the folder is added");
       assert.strictEqual(Number($("ruleCount").textContent), savedRules,
         "Saved rules survive the second upload");
-      assert.ok(/Added 1 page/.test($("status").textContent),
+      assert.ok(/Added 3 page/.test($("status").textContent),
         "The status reports what was added: " + $("status").textContent);
       assert.ok(/ignored 1 non-HTML/.test($("status").textContent),
         "The status reports ignored assets: " + $("status").textContent);
@@ -125,7 +129,7 @@ JSDOM.fromFile(path.join(root, "index.html"), {
         make("global_actions_list.html", GRID, "text/html", "Pulse_files_root/Pulse_files/global_actions_list.html")
       ]);
       await settle(window, 40);
-      assert.strictEqual(pages(), 2, "A repeat upload does not duplicate pages");
+      assert.strictEqual(pages(), 4, "A repeat upload does not duplicate pages");
       assert.ok(/Nothing new/.test($("status").textContent),
         "The status says nothing new: " + $("status").textContent);
 

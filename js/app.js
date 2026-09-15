@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "7";
+  const BUILD = "8";
 
   const $ = (id) => document.getElementById(id);
 
@@ -505,11 +505,30 @@
   function checkBuild() {
     const stamp = $("buildId");
     const shown = stamp ? stamp.textContent.trim() : "";
-    if (shown === BUILD) return;
-    $("warnBox").innerHTML = alertHtml("bad",
-      "Your browser is showing an older copy of this page" +
-      (shown ? " (build " + escapeHtml(shown) + ", the code is build " + BUILD + ")" : "") +
-      ". Reload with <strong>Cmd+Shift+R</strong> on Mac or <strong>Ctrl+Shift+R</strong> on Windows, then try again.", true);
+    if (shown !== BUILD) {
+      $("warnBox").innerHTML = alertHtml("bad",
+        "Your browser is showing an older copy of this page" +
+        (shown ? " (build " + escapeHtml(shown) + ", the code is build " + BUILD + ")" : "") +
+        ". Reload with <strong>Cmd+Shift+R</strong> on Mac or <strong>Ctrl+Shift+R</strong> on Windows, then try again.", true);
+    }
+    checkForUpdate();
+  }
+
+  /* A page cached whole is self-consistent, so nothing above catches it. Ask the
+     server what the current build is; stay quiet if there is no server. */
+  async function checkForUpdate() {
+    let latest;
+    try {
+      const res = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) return;
+      latest = String((await res.json()).build || "");
+    } catch (_) {
+      return;
+    }
+    if (!latest || latest === BUILD) return;
+    $("updateBox").innerHTML = alertHtml("bad",
+      "Build " + escapeHtml(latest) + " is available and you are running build " + BUILD + ". " +
+      '<button type="button" class="btn sm" data-action="reload">Reload now</button>', true);
   }
 
   function startOver() {
@@ -707,6 +726,9 @@
     $("warnBox").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action='add-folder']");
       if (btn) $("folderInput").click();
+    });
+    $("updateBox").addEventListener("click", (e) => {
+      if (e.target.closest("[data-action='reload']")) location.reload(true);
     });
     $("fieldEmpty").addEventListener("click", (e) => {
       if (!e.target.closest("[data-action='open-best']")) return;
