@@ -182,6 +182,33 @@ async function run() {
   check(mixedReport.missingFrames.length === 0 || !mixedReport.missingFrames.includes("global_actions_list.html"),
     "The frame supplied by the folder is not reported missing");
 
+  // Helper-frame names must match on a token boundary, or real pages vanish.
+  const realPage = "<html><body><table><tr><th>Ticket</th><td>TIC-3904</td></tr></table></body></html>";
+  const helperNames = await WxIngest.ingestFiles([
+    fakeFile("upload.html", realPage),
+    fakeFile("download.html", realPage),
+    fakeFile("dashboard.html", realPage),
+    fakeFile("blanket.html", realPage),
+    fakeFile("authorize(1).html", realPage),
+    fakeFile("TokenFactoryIframe.html", realPage),
+    fakeFile("blank.html", realPage)
+  ], { mode: "files" });
+  const helperOf = (n) => (helperNames.docs.find((d) => d.name === n) || {}).isHelper;
+  check(helperOf("upload.html") === false, "upload.html is a real page", helperOf("upload.html"));
+  check(helperOf("download.html") === false, "download.html is a real page", helperOf("download.html"));
+  check(helperOf("dashboard.html") === false, "dashboard.html is a real page", helperOf("dashboard.html"));
+  check(helperOf("blanket.html") === false, "blanket.html is a real page", helperOf("blanket.html"));
+  check(helperOf("authorize(1).html") === true, "authorize(1).html is still a helper");
+  check(helperOf("TokenFactoryIframe.html") === true, "TokenFactoryIframe.html is still a helper");
+  check(helperOf("blank.html") === true, "blank.html is still a helper");
+
+  // An empty selection still has to produce a fully formed report.
+  const emptyFolder = await WxIngest.ingestFiles([], { mode: "folder", ignoredFiles: 3 });
+  check(Array.isArray(emptyFolder.pendingImages), "An empty folder report still has pendingImages");
+  check(Array.isArray(emptyFolder.pendingPdfs), "An empty folder report still has pendingPdfs");
+  check(Array.isArray(emptyFolder.missingFrames), "An empty folder report still has missingFrames");
+  check(emptyFolder.errors.some((e) => /does not contain any HTML/i.test(e)), "An empty folder still reports why");
+
   const assetsOnly = directoryEntry("assets", [
     fileEntry("one.png", fakeFile("one.png", "x")),
     fileEntry("two.css", fakeFile("two.css", "x"))

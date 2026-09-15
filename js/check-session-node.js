@@ -122,6 +122,40 @@ JSDOM.fromFile(path.join(root, "index.html"), {
       assert.strictEqual($("ruleCount").textContent, "0", "Start over clears the saved rules");
       assert.ok($("resetBtn").classList.contains("hidden"), "Start over hides itself again");
 
+      // 5. A folder with no HTML, dropped as the very first thing, must report
+      //    the problem rather than dying partway through.
+      const cssEntry = {
+        isFile: true,
+        isDirectory: false,
+        name: "main.css",
+        file: (ok) => ok(make("main.css", STYLE, "text/css"))
+      };
+      const dirEntry = {
+        isFile: false,
+        isDirectory: true,
+        name: "assets",
+        createReader: () => {
+          let done = false;
+          return {
+            readEntries: (ok) => {
+              const batch = done ? [] : [cssEntry];
+              done = true;
+              ok(batch);
+            }
+          };
+        }
+      };
+      const drop = new window.Event("drop", { bubbles: true, cancelable: true });
+      drop.dataTransfer = { items: [{ kind: "file", webkitGetAsEntry: () => dirEntry }], files: [] };
+      $("drop").dispatchEvent(drop);
+      await settle(window, 60);
+
+      assert.ok(/does not contain any HTML/i.test($("warnBox").textContent),
+        "An asset-only folder explains itself: " + $("warnBox").textContent.slice(0, 120));
+      assert.ok(!/Scanning/i.test($("status").textContent),
+        "The status finishes rather than hanging: " + $("status").textContent);
+      assert.strictEqual(pages(), 0, "No pages are loaded from an asset-only folder");
+
       console.log("Session checks passed");
     } catch (err) {
       console.error(err.message || err);

@@ -136,7 +136,8 @@
       } else if (folderMode) {
         report.errors.push("The selected folder is empty or could not be read. Choose a folder that contains HTML files.");
       }
-      return report;
+      // Must finish like any other report, or the caller reads fields that are not there.
+      return finish(report);
     }
 
     // A drop can mix folders with loose files. Only what came out of a folder is
@@ -221,13 +222,18 @@
         report.warnings.push(report.input.duplicateFiles + " duplicate file path(s) were ignored.");
       }
     }
-    report.pendingImages = report.images.slice();
-    report.pendingPdfs = report.pdfs.slice();
-    decorateDocs(report);
-    return report;
+    return finish(report);
   }
 
-  const HELPER = /(TokenFactoryIframe|authorize|checksession|blank|silent|signin|logout|pixel|beacon|ads?)[^/]*\.html?$/i;
+  function finish(report) {
+    report.pendingImages = report.images.slice();
+    report.pendingPdfs = report.pdfs.slice();
+    return decorateDocs(report);
+  }
+
+  /* Helper names must sit on a token boundary. Matching them loosely hid real pages:
+     "ads?" alone turns upload.html and dashboard.html into "helper frames". */
+  const HELPER = /(?:^|[/_\-.\s])(?:tokenfactoryiframe|authorize|checksession|blank|silent|signin|signout|logout|pixel|beacon|ads?)(?:[^a-z/][^/]*)?\.html?$/i;
 
   function decorateDocs(report) {
     report.docs.forEach((d) => {
