@@ -28,7 +28,11 @@ assert.strictEqual(uploadButtons.length, 1, "The dropzone must expose exactly on
 assert.strictEqual(uploadButtons[0].id, "addBtn", "That button must be addBtn");
 assert.strictEqual(doc.getElementById("addBtn").getAttribute("aria-expanded"), "false", "Menu must start collapsed");
 assert.ok(doc.getElementById("addMenu").classList.contains("hidden"), "Menu markup must start hidden");
-assert.strictEqual(doc.querySelectorAll("#addMenu .add-menu-item").length, 2, "Menu must offer folder and file routes");
+assert.strictEqual(doc.querySelectorAll("#addMenu .add-menu-item").length, 3,
+  "Menu must offer folder, paired and file routes");
+assert.ok(doc.getElementById("pickPairBtn"), "The paired route must exist");
+assert.ok(app.includes("state.pairing = true"), "The paired route must arm the follow-up prompt");
+assert.ok(app.includes("data-action='add-folder'"), "The missing-frame alert must offer a folder button");
 assert.ok(
   !doc.querySelector('label > input[type="file"]'),
   "File inputs must be standalone so the menu drives them"

@@ -72,6 +72,14 @@ JSDOM.fromFile(path.join(root, "index.html"), {
         "The missing sub-page is called out: " + $("warnBox").textContent.slice(0, 120));
       assert.ok(!$("resetBtn").classList.contains("hidden"), "Start over appears once pages are loaded");
 
+      // The alert must offer a way straight to the folder picker.
+      const folderAction = $("warnBox").querySelector("[data-action='add-folder']");
+      assert.ok(folderAction, "The missing-frame alert offers a folder button");
+      let openedFolder = false;
+      $("folderInput").click = () => { openedFolder = true; };
+      folderAction.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      assert.ok(openedFolder, "That button opens the folder picker");
+
       // Save a rule so we can prove the next upload does not wipe it.
       $("keyInput").value = "shell_filter";
       $("pathInput").value = "//input[@id='q']/@value";

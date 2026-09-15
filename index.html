@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Extraction Assistant · Task Mining</title>
-  <link rel="stylesheet" href="css/app.css?v=4">
+  <link rel="stylesheet" href="css/app.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -66,6 +66,13 @@
               <span class="add-menu-text">
                 <strong>A folder</strong>
                 <small>Reads every page inside, including the <code>_files</code> subfolder where iframes live. Pick one folder at a time.</small>
+              </span>
+            </button>
+            <button type="button" class="add-menu-item" id="pickPairBtn" role="menuitem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M2 20h6"/></svg>
+              <span class="add-menu-text">
+                <strong>A page and its folder</strong>
+                <small>Pick the <code>.html</code>, then its <code>_files</code> folder. Two dialogs, because no browser can show files and folders in one.</small>
               </span>
             </button>
             <button type="button" class="add-menu-item" id="pickFilesBtn" role="menuitem">
@@ -288,18 +295,18 @@
 
   <footer class="foot">
     Bundled offline engines: JSZip (MIT), Tesseract.js (Apache-2.0), PDF.js (Apache-2.0). Customer files never leave this browser.
-    <span class="build">Build <span id="buildId">4</span></span>
+    <span class="build">Build <span id="buildId">5</span></span>
   </footer>
 </div>
 
 <script src="vendor/jszip.min.js"></script>
 <script src="vendor/tesseract/tesseract.min.js"></script>
-<script src="js/xpath.js?v=4"></script>
-<script src="js/ingest.js?v=4"></script>
-<script src="js/folder.js?v=4"></script>
-<script src="js/export.js?v=4"></script>
-<script src="js/ocr.js?v=4"></script>
-<script src="js/selftest.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/xpath.js?v=5"></script>
+<script src="js/ingest.js?v=5"></script>
+<script src="js/folder.js?v=5"></script>
+<script src="js/export.js?v=5"></script>
+<script src="js/ocr.js?v=5"></script>
+<script src="js/selftest.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>

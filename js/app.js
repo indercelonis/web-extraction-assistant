@@ -7,10 +7,11 @@
     alts: [],
     accepted: [],
     ocr: [],
-    recconfRaw: ""
+    recconfRaw: "",
+    pairing: false
   };
 
-  const BUILD = "4";
+  const BUILD = "5";
 
   const $ = (id) => document.getElementById(id);
 
@@ -445,7 +446,8 @@
         escapeHtml(report.missingFrames.slice(0, 3).join(", ")) +
         (report.missingFrames.length > 3 ? ", and more" : "") +
         ". A saved page keeps its iframes as separate files in the <strong>_files</strong> folder, and a lone HTML file cannot reach them. " +
-        "Add the folder as well - uploads stack up, so nothing you have already loaded is lost.", true));
+        "Nothing already loaded is lost when you add it." +
+        '<button type="button" class="btn sm alert-action" data-action="add-folder">Choose the folder</button>', true));
     }
     if (!report.docs.length && (report.images.length || report.pdfs.length)) {
       notes.push(alertHtml("info", "Only images or PDFs were loaded. Add the saved <strong>HTML</strong> to get XPaths and URL filters.", true));
@@ -595,8 +597,19 @@
       });
     });
     $("fileInput").addEventListener("change", async (e) => {
+      const pairing = state.pairing;
+      state.pairing = false;
       await handleFiles(e.target.files, { mode: "files" });
       e.target.value = "";
+      // The second dialog cannot be opened for the user: reading the file spends
+      // the click that would have authorised it. Point at the button instead.
+      if (!pairing) return;
+      const next = $("warnBox").querySelector("[data-action='add-folder']");
+      if (next) {
+        next.scrollIntoView({ block: "nearest" });
+        next.focus();
+        setStatus("Now choose the _files folder for that page.");
+      }
     });
     $("folderInput").addEventListener("change", async (e) => {
       await handleFiles(e.target.files, { mode: "folder" });
@@ -641,6 +654,11 @@
       setOpen(false);
       $("fileInput").click();
     });
+    on("pickPairBtn", "click", () => {
+      setOpen(false);
+      state.pairing = true;
+      $("fileInput").click();
+    });
 
     menu.addEventListener("keydown", (e) => {
       const at = items.indexOf(document.activeElement);
@@ -665,6 +683,11 @@
     checkBuild();
     bindDrop();
     bindAddMenu();
+    // Alerts are rebuilt as HTML, so their buttons are handled by delegation.
+    $("warnBox").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action='add-folder']");
+      if (btn) $("folderInput").click();
+    });
     $("demoBtn").addEventListener("click", loadDemo);
     on("resetBtn", "click", startOver);
     $("hideEmpty").addEventListener("change", renderDocs);

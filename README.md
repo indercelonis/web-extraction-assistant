@@ -58,6 +58,7 @@ Chrome: **Save as** → **Webpage, Complete**. Add the saved page **folder**, or
 Everything goes through one **Add pages** button, which asks whether you are adding a folder or files:
 
 - **A folder** recursively scans a directory, including the `_files` subfolder. One folder per pick.
+- **A page and its folder** picks the `.html`, then prompts for its `_files` folder.
 - **Files or a ZIP** selects any number of files, including ZIP archives.
 - Drag and drop accepts a mixed selection of files, ZIP archives, and folders in one gesture. This is the only way to combine a file and a folder in a single action; a browser dialog offers one or the other. Files dropped loose keep their type, while files found inside a dropped folder are narrowed to HTML.
 

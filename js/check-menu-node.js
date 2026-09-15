@@ -50,6 +50,10 @@ JSDOM.fromFile(path.join(root, "index.html"), {
     click(doc.getElementById("pickFilesBtn"));
     assert.strictEqual(opened, "files", "File item opens the file picker");
 
+    click(btn);
+    click(doc.getElementById("pickPairBtn"));
+    assert.strictEqual(opened, "files", "Paired item starts with the file picker");
+
     // Escape closes and returns focus.
     click(btn);
     key(menu, "Escape");
@@ -66,7 +70,7 @@ JSDOM.fromFile(path.join(root, "index.html"), {
     assert.ok(!menu.classList.contains("hidden"), "ArrowDown opens the menu");
     assert.strictEqual(doc.activeElement.id, "pickFolderBtn", "ArrowDown focuses the first item");
     key(menu, "ArrowDown");
-    assert.strictEqual(doc.activeElement.id, "pickFilesBtn", "ArrowDown moves to the next item");
+    assert.strictEqual(doc.activeElement.id, "pickPairBtn", "ArrowDown moves to the next item");
     key(menu, "ArrowUp");
     assert.strictEqual(doc.activeElement.id, "pickFolderBtn", "ArrowUp moves back");
 
