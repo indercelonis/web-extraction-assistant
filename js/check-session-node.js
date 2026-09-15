@@ -11,9 +11,9 @@ vc.on("jsdomError", (e) => {
   if (!/Could not parse CSS|Could not load/.test(e.message)) throw e;
 });
 
+// A Power Apps or Pulse shell carries no fields of its own: the app is in the iframe.
 const SHELL = `<html><head><title>Pulse</title></head><body>
-  <iframe id="widget-203" src="./Pulse_files/global_actions_list.html"></iframe>
-  <label for="q">Filter</label><input id="q" title="Filter" value="open">
+  <div id="playerAppContainer"><iframe id="widget-203" src="./Pulse_files/global_actions_list.html"></iframe></div>
 </body></html>`;
 
 const GRID = `<html><head><title>Global actions</title></head><body>
@@ -80,7 +80,13 @@ JSDOM.fromFile(path.join(root, "index.html"), {
       folderAction.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       assert.ok(openedFolder, "That button opens the folder picker");
 
-      // Save a rule so we can prove the next upload does not wipe it.
+      assert.strictEqual($("fieldCount").textContent, "0", "The shell alone has no fields");
+      assert.ok(/no fields/i.test($("fieldEmpty").textContent),
+        "The empty field list says so: " + $("fieldEmpty").textContent.trim().slice(0, 80));
+
+      // Save a rule so we can prove the next upload does not wipe it. The shell
+      // matches nothing, so the "keep it anyway" prompt needs an answer.
+      window.confirm = () => true;
       $("keyInput").value = "shell_filter";
       $("pathInput").value = "//input[@id='q']/@value";
       $("urlInput").value = "pulse.novartis.intra";
@@ -105,6 +111,14 @@ JSDOM.fromFile(path.join(root, "index.html"), {
         "The status reports what was added: " + $("status").textContent);
       assert.ok(/ignored 1 non-HTML/.test($("status").textContent),
         "The status reports ignored assets: " + $("status").textContent);
+
+      // The whole point of adding the folder: the tool must move off the empty
+      // shell and onto the page that actually holds the data.
+      assert.ok(/global_actions_list/.test($("docTitle").textContent + $("warnBox").textContent) ||
+        Number($("fieldCount").textContent) > 0,
+        "The selection moves to the page with fields");
+      assert.ok(Number($("fieldCount").textContent) > 0,
+        "Fields are found after the folder is added, got " + $("fieldCount").textContent);
 
       // 3. Re-adding the same folder changes nothing.
       feed($("folderInput"), [

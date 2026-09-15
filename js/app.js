@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "6";
+  const BUILD = "7";
 
   const $ = (id) => document.getElementById(id);
 
@@ -176,11 +176,31 @@
     return ICON.text;
   }
 
+  function bestDocIndex() {
+    const docs = (state.report && state.report.docs) || [];
+    return docs.findIndex((d) => !d.isHelper && d.richness > 0);
+  }
+
   function renderFields() {
     const list = $("fieldList");
     list.innerHTML = "";
     $("fieldCount").textContent = String(state.fields.length);
-    $("fieldEmpty").classList.toggle("hidden", state.fields.length > 0);
+    const empty = $("fieldEmpty");
+    empty.classList.toggle("hidden", state.fields.length > 0);
+    if (!state.fields.length) {
+      const docs = (state.report && state.report.docs) || [];
+      const best = bestDocIndex();
+      if (!docs.length) {
+        empty.textContent = "Load an HTML page to see fields";
+      } else if (best > -1 && best !== state.docIndex) {
+        empty.innerHTML =
+          "This page has no fields. <strong>" + escapeHtml(docs[best].name.split("/").pop()) +
+          "</strong> is the one with the data. " +
+          '<button type="button" class="btn sm" data-action="open-best">Open it</button>';
+      } else {
+        empty.textContent = "No fields were found on this page.";
+      }
+    }
 
     state.fields.forEach((f, i) => {
       const li = document.createElement("li");
@@ -397,10 +417,10 @@
       fresh.warnings.push("The folder contains more than " + WxFolder.MAX_DIRECTORY_FILES + " files. Only the first files were checked.");
     }
 
-    // Remember where the user was, so adding more pages does not move them.
-    const wasOn = state.report && state.report.docs[state.docIndex]
-      ? state.report.docs[state.docIndex].name
-      : null;
+    // Hold the user's place, but not on a page with nothing on it. Adding a folder
+    // to a bare Power Apps or Pulse shell is exactly how the real page arrives.
+    const current = state.report && state.report.docs[state.docIndex];
+    const wasOn = current && !current.isHelper ? current.name : null;
 
     const report = WxIngest.mergeReports(state.report, fresh);
     state.report = report;
@@ -687,6 +707,11 @@
     $("warnBox").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action='add-folder']");
       if (btn) $("folderInput").click();
+    });
+    $("fieldEmpty").addEventListener("click", (e) => {
+      if (!e.target.closest("[data-action='open-best']")) return;
+      const best = bestDocIndex();
+      if (best > -1) selectDoc(best);
     });
     $("demoBtn").addEventListener("click", loadDemo);
     on("resetBtn", "click", startOver);
