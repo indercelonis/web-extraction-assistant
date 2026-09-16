@@ -113,8 +113,19 @@ page uses once: Jira gives every person on screen the same profile-card hook, an
 that reads the wrong person. Any path that still has to fall back to a generated class name is
 scored down and says so.
 
-Values rendered inside a shadow root remain out of reach for any XPath. Those fields are named
-and reported rather than offered as rules.
+A caption's value need not sit beside the caption itself. Salesforce puts the caption in a
+label box and the value in a control box next to it, so the tool climbs out of any box holding
+nothing but the caption before it steps sideways.
+
+A lookup field prints its value as a link to the record it points at, which is how Salesforce
+draws a case owner, a contact and an account. Link text is therefore read as a value. A button
+is not: "Add object" sits where a value would sit only because the field is empty.
+
+Values rendered inside a shadow root remain out of reach for any XPath, here and in Task Mining
+against the live page. Salesforce leaves an empty `<force-owner-lookup>` behind in the saved
+page and prints the owner's name only inside it. Such a field is listed by name, with the
+component that swallowed it, rather than left out: the page would otherwise look complete while
+missing the one field the reader came for.
 
 ## Image reader
 

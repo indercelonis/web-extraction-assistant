@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "11";
+  const BUILD = "12";
 
   const $ = (id) => document.getElementById(id);
 
@@ -219,6 +219,17 @@
       btn.querySelector(".t2").textContent = f.sample ? f.sample.slice(0, 70) : "(empty value)";
       btn.addEventListener("click", () => selectField(i));
       li.appendChild(btn);
+      list.appendChild(li);
+    });
+
+    // A field whose value never reached the saved page has to be named here.
+    // Otherwise the page looks complete and the reader is left wondering why
+    // the one field they came for is absent.
+    const current = state.report && state.report.docs[state.docIndex];
+    ((current && current.shadowGaps) || []).forEach((g) => {
+      const li = document.createElement("li");
+      li.className = "blocked";
+      li.textContent = g.label + " — value is drawn by <" + g.component + ">, which no XPath can read";
       list.appendChild(li);
     });
   }

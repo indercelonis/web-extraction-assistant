@@ -400,6 +400,34 @@
    * Only captions whose own text repeats the title qualify, so tooltips on
    * links, images and buttons are left alone.
    */
+  /** Text with the gaps taken out, so layout whitespace cannot matter. */
+  function bareText(el) {
+    return nodeText(el).replace(/\s+/g, "");
+  }
+
+  /**
+   * A caption's value sits beside it, though not always beside the caption
+   * itself: Salesforce puts the caption in a label box and the value in a
+   * control box next to it. So climb out of any wrapper that holds nothing
+   * but the caption, then step sideways.
+   *
+   * The region comes back even when it is empty, because an empty region is
+   * what a component that rendered into a shadow root leaves behind, and that
+   * field has to be reported rather than quietly dropped.
+   */
+  function captionValueRegion(cap) {
+    const own = bareText(cap);
+    let node = cap;
+    for (let depth = 0; node && depth < 4; depth += 1) {
+      const sibling = node.nextElementSibling;
+      if (sibling) return bareText(sibling) === own ? null : sibling;
+      const parent = node.parentElement;
+      if (!parent || bareText(parent) !== own) return null;
+      node = parent;
+    }
+    return null;
+  }
+
   function titleCaptions(doc) {
     const out = [];
     doc.querySelectorAll("[title]").forEach((cap) => {
@@ -408,25 +436,35 @@
       if (cap.querySelector("input, textarea, select")) return;
       const own = nodeText(cap).replace(/[:*]/g, "").trim();
       if (!own || own.toLowerCase() !== title.toLowerCase()) return;
-      const value = cap.nextElementSibling;
+      const value = captionValueRegion(cap);
       if (!value) return;
-      out.push({ caption: cap, value, title });
+      out.push({ caption: cap, value, title, adjacent: cap.nextElementSibling === value });
     });
     return out;
   }
 
-  function titleAnchoredPaths(cap, valueEl) {
+  function titleAnchoredPaths(cap, valueEl, adjacent) {
     const lit = xpathLiteral(cap.getAttribute("title"));
     const ctag = cap.tagName.toLowerCase();
     const vtag = valueEl.tagName.toLowerCase();
     const vcls = stableClassToken(valueEl.getAttribute("class"));
     const anchor = "//" + ctag + "[@title=" + lit + "]";
     const paths = [];
-    if (vcls) {
-      paths.push("(" + anchor + "/following-sibling::" + vtag + "[contains(@class," + xpathLiteral(vcls) + ")])[1]");
+    if (adjacent) {
+      if (vcls) {
+        paths.push("(" + anchor + "/following-sibling::" + vtag + "[contains(@class," + xpathLiteral(vcls) + ")])[1]");
+      }
+      paths.push("(" + anchor + "/following-sibling::" + vtag + "[normalize-space()])[1]");
+      paths.push("(//*[@title=" + lit + "]/following-sibling::*[normalize-space()])[1]");
+      return paths;
     }
-    paths.push("(" + anchor + "/following-sibling::" + vtag + "[normalize-space()])[1]");
-    paths.push("(//*[@title=" + lit + "]/following-sibling::*[normalize-space()])[1]");
+    // The value is in its own box beside the caption's box, so the path has
+    // to leave the caption's wrapper before it can reach the value.
+    const inner = innermostWithText(valueEl);
+    const itag = inner ? inner.tagName.toLowerCase() : vtag;
+    paths.push("(" + anchor + "/following::" + itag + "[not(*)][normalize-space()])[1]");
+    paths.push("(" + anchor + "/following::" + itag + "[normalize-space()])[1]");
+    paths.push("(//*[@title=" + lit + "]/following::*[normalize-space()])[1]");
     return paths;
   }
 
@@ -466,6 +504,29 @@
         const tag = node.tagName.toLowerCase();
         const role = node.getAttribute && node.getAttribute("role");
         if (/^(a|button)$/.test(tag) || (role && /^(button|link|menuitem|tab)$/.test(role))) return true;
+        node = node.parentElement;
+      }
+      return false;
+    });
+  }
+
+  /**
+   * Stricter than the above, for deciding whether a row offers data or an
+   * action. A button is an action: "Add object" sits where a value would sit
+   * only because the field is empty. A link is not. A lookup field draws its
+   * value as a link to the record it points at, which is how Salesforce
+   * prints a case owner, a contact and an account, so link text is a reading.
+   */
+  function textIsAllActions(el) {
+    const holders = Array.from(el.querySelectorAll("*")).filter((n) => !n.children.length && nodeText(n));
+    if (!holders.length) return isInteractive(el);
+    return holders.every((n) => {
+      let node = n;
+      while (node && node !== el.parentElement) {
+        const tag = node.tagName.toLowerCase();
+        const role = node.getAttribute && node.getAttribute("role");
+        if (/^(button|input|textarea|select)$/.test(tag)) return true;
+        if (role && /^(button|menuitem|tab)$/.test(role)) return true;
         node = node.parentElement;
       }
       return false;
@@ -534,9 +595,9 @@
       if (FILE_NAME.test(label) || FILE_NAME.test(label + value)) return;
       // A value that opens with punctuation is a fragment, not a reading.
       if (!/[A-Za-z0-9]{2}/.test(value) || /^[^A-Za-z0-9]/.test(value)) return;
-      // Only guess that clickable text is a value when nothing declared it one.
-      // A person's name inside a profile-card button is still the value.
-      if (!declared && textIsAllInteractive(val)) return;
+      // A row offering a button offers an action. A row whose value is a link
+      // is a lookup field, and its link text is the value.
+      if (!declared && textIsAllActions(val)) return;
 
       // The row must hold nothing but the caption and the value. Compare
       // without spaces, since the gap between two children is not meaningful.
@@ -883,7 +944,7 @@
     titleCaptions(doc).forEach((c) => {
       const isControl = /^(INPUT|TEXTAREA|SELECT)$/.test(c.value.tagName) || !!c.value.querySelector("input, textarea, select");
       if (!nodeText(c.value) && !isControl) return;
-      add(c.title, c.value, titleAnchoredPaths(c.caption, c.value), isControl ? "input" : "text");
+      add(c.title, c.value, titleAnchoredPaths(c.caption, c.value, c.adjacent), isControl ? "input" : "text");
     });
 
     // Two-column "Label | Value" rows, e.g. eSUB Manager envelope tables.

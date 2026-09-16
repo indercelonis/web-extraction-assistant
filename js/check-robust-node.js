@@ -79,6 +79,54 @@ assert.strictEqual((find(rank(`<body><p><strong>Study Code:</strong><span>DAK539
 assert.ok(find(rank(`<body><label for="n">Customer</label><input id="n" value="Ada"></body>`), "customer"),
   "A plain label must still work");
 
+// Salesforce draws a record two ways: the caption and value as siblings, and
+// each in its own box. A lookup field such as Case Owner or Contact Name
+// prints its value as a link to the record it points at, which must be read
+// as a value, while a button sitting in an empty field is an action.
+function salesforce(valueMarkup, wrapped) {
+  const caption = `<p title="Contact Name" class="fieldLabel">Contact Name</p>`;
+  const value = `<p class="fieldComponent">` + valueMarkup + `</p>`;
+  return "<body>" + (wrapped
+    ? `<div class="slds-form-element"><div class="label">${caption}</div><div class="control">${value}</div></div>`
+    : `<div class="slds-form-element">${caption}${value}</div>`) + "</body>";
+}
+[["a link", `<a href="/lightning/r/Contact/003/view">Ada Lovelace</a>`],
+  ["plain text", `<span>Ada Lovelace</span>`]
+].forEach(([shape, markup]) => {
+  [false, true].forEach((wrapped) => {
+    const where = shape + (wrapped ? ", caption in its own box" : ", caption beside the value");
+    const field = find(rank(salesforce(markup, wrapped)), "contact_name");
+    assert.ok(field, "A lookup field drawn as " + where + " must be found");
+    assert.strictEqual(field.best.sample, "Ada Lovelace",
+      "A lookup field drawn as " + where + " must read its value, got " +
+      JSON.stringify(field.best.sample) + " via " + field.best.xpath);
+    assert.strictEqual(field.best.matchCount, 1,
+      "A lookup field drawn as " + where + " must match one node, got " + field.best.xpath);
+  });
+});
+
+// Where the value is a component that rendered into a shadow root, the saved
+// page holds an empty tag. No path can read it, in this tool or in Task
+// Mining, so the field must be named and reported rather than left out.
+[false, true].forEach((wrapped) => {
+  const html = salesforce(`<slot><force-owner-lookup></force-owner-lookup></slot>`, wrapped)
+    .replace(/Contact Name/g, "Case Owner");
+  const doc = new JSDOM(html, { contentType: "text/html" }).window.document;
+  const gaps = WxPath.shadowGaps(doc);
+  const where = wrapped ? " when the caption sits in its own box" : "";
+  assert.strictEqual(gaps.length, 1,
+    "A value left behind in a shadow root must be reported once" + where + ", got " + JSON.stringify(gaps));
+  assert.strictEqual(gaps[0].label, "Case Owner", "The lost field must be named" + where);
+  assert.strictEqual(gaps[0].component, "force-owner-lookup",
+    "The report must name the component that swallowed the value" + where);
+  assert.ok(!find(WxPath.rankFields(doc, WxPath.collectFields(doc)), "case_owner"),
+    "A value no path can reach must not be offered as a rule");
+});
+
+// A button standing in an empty field is an action, not a value.
+assert.ok(!rank(`<body><div><div><span>Object</span></div><div><button>Add object</button></div></div></body>`)
+  .some((f) => f.best.sample === "Add object"), "A button offering an action is not a value");
+
 // Many fields on one page must stay correct, and ranking must stay bounded.
 const many = "<body>" + Array.from({ length: 30 }, (_, i) =>
   `<div data-testid="row${i}.field.v"><div><span>Field ${i}</span></div><div><span>Value ${i}</span></div></div>`).join("") + "</body>";
