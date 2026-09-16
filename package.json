@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "python3 -m http.server 8765 --bind 127.0.0.1",
-    "test": "npm run test:xpath && npm run test:folder && npm run test:ui && npm run test:menu && npm run test:frames && npm run test:session",
+    "test": "npm run test:xpath && npm run test:shadow && npm run test:folder && npm run test:ui && npm run test:menu && npm run test:frames && npm run test:session",
     "test:xpath": "node js/check-xpath-node.js",
+    "test:shadow": "node js/check-shadow-node.js",
     "test:folder": "node js/check-folder-node.js",
     "test:ui": "node js/check-ui-node.js",
     "test:menu": "node js/check-menu-node.js",

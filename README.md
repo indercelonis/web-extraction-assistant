@@ -74,7 +74,7 @@ Folder mode:
 - Ignores images, CSS, JavaScript, fonts, JSON, PDFs and other non-HTML files.
 - Reports how many HTML files were processed and how many other files were ignored.
 - Shows a clear error when the folder is empty or contains no HTML.
-- Skips duplicate paths, unreadable files, and individual files over 45 MB with an explanation.
+- Skips duplicate paths, unreadable files, and individual pages over 60 MB with an explanation.
 
 ## How to use
 
@@ -103,6 +103,9 @@ PDFs use bundled **PDF.js** (Apache-2.0).
 
 - Saved pages with no `saved from url=` comment may need a manual URL filter.
 - Folder mode accepts up to 5,000 HTML files and 500 MB of processable input per selection.
+- A `.zip` is judged by the HTML inside it, not by its own size: the archive may be up to 500 MB,
+  and each page unpacked from it up to 60 MB. Images, CSS and JavaScript in the archive are
+  discarded without being read, so they do not count against the memory budget.
 - Selected-row SharePoint paths need the live selected class. The tool also offers a first-row fallback and will say so.
 - No path is 100% on every customer site. The tool always shows matches and sample text so a bad path is visible.
 - Customer HTML can contain personal data. Keep it on your machine.

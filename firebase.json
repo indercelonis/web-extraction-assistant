@@ -1,0 +1,36 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/node_modules/**",
+      "package.json",
+      "package-lock.json",
+      "serve.sh",
+      "README.md",
+      "THIRD_PARTY_NOTICES.txt",
+      "deploy/**",
+      "js/check-folder-node.js",
+      "js/check-xpath-node.js",
+      "Dockerfile",
+      "nginx.conf"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          }
+        ]
+      }
+    ]
+  }
+}

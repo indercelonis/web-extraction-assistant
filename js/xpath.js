@@ -227,6 +227,77 @@
     return paths;
   }
 
+  /**
+   * Web-component layouts caption a field with a title attribute instead of a
+   * <label>, then put the value in the next sibling:
+   *   <p title="Case Number">Case Number</p><p class="fieldComponent">00449148</p>
+   * Only captions whose own text repeats the title qualify, so tooltips on
+   * links, images and buttons are left alone.
+   */
+  function titleCaptions(doc) {
+    const out = [];
+    doc.querySelectorAll("[title]").forEach((cap) => {
+      const title = String(cap.getAttribute("title") || "").replace(/\s+/g, " ").trim();
+      if (!title || title.length > 60) return;
+      if (cap.querySelector("input, textarea, select")) return;
+      const own = nodeText(cap).replace(/[:*]/g, "").trim();
+      if (!own || own.toLowerCase() !== title.toLowerCase()) return;
+      const value = cap.nextElementSibling;
+      if (!value) return;
+      out.push({ caption: cap, value, title });
+    });
+    return out;
+  }
+
+  function titleAnchoredPaths(cap, valueEl) {
+    const lit = xpathLiteral(cap.getAttribute("title"));
+    const ctag = cap.tagName.toLowerCase();
+    const vtag = valueEl.tagName.toLowerCase();
+    const vcls = stableClassToken(valueEl.getAttribute("class"));
+    const anchor = "//" + ctag + "[@title=" + lit + "]";
+    const paths = [];
+    if (vcls) {
+      paths.push("(" + anchor + "/following-sibling::" + vtag + "[contains(@class," + xpathLiteral(vcls) + ")])[1]");
+    }
+    paths.push("(" + anchor + "/following-sibling::" + vtag + "[normalize-space()])[1]");
+    paths.push("(//*[@title=" + lit + "]/following-sibling::*[normalize-space()])[1]");
+    return paths;
+  }
+
+  /**
+   * A component that rendered into a shadow root leaves an empty tag behind in
+   * saved HTML. XPath cannot cross a shadow boundary, so the value is out of
+   * reach here and in Task Mining itself. Return the component name so the
+   * report can say which field was lost and why.
+   */
+  function unrenderedComponent(el) {
+    if (!el || nodeText(el)) return null;
+    const nodes = [el].concat(Array.from(el.querySelectorAll("*")));
+    const hit = nodes.find((n) => n.tagName.includes("-") && !n.children.length && !nodeText(n));
+    return hit ? hit.tagName.toLowerCase() : null;
+  }
+
+  /** Fields whose caption is readable but whose value sits behind shadow DOM. */
+  function shadowGaps(doc) {
+    const gaps = [];
+    const seen = new Set();
+    function note(label, valueEl) {
+      if (!label || seen.has(label)) return;
+      const component = unrenderedComponent(valueEl);
+      if (!component) return;
+      seen.add(label);
+      gaps.push({ label, component });
+    }
+    titleCaptions(doc).forEach((c) => note(c.title, c.value));
+    doc.querySelectorAll("label").forEach((lab) => {
+      const text = nodeText(lab).replace(/[:*]/g, "").trim();
+      if (!text || text.length > 80) return;
+      if (valuesForLabel(lab, doc).some((c) => nodeText(c.value))) return;
+      note(text, lab.nextElementSibling);
+    });
+    return gaps;
+  }
+
   /** <strong>Study Codes:</strong><span>DAK539A12303</span> and <dt>/<dd> pairs. */
   function textLabelPaths(labelEl, valueEl) {
     if (!valueEl) return [];
@@ -428,6 +499,14 @@
       add(text, target || lab, extra, target && target.tagName === "INPUT" ? "input" : "text");
     });
 
+    // Values hidden in a shadow root are reported separately by shadowGaps, so
+    // only pair a caption with a sibling that actually carries something.
+    titleCaptions(doc).forEach((c) => {
+      const isControl = /^(INPUT|TEXTAREA|SELECT)$/.test(c.value.tagName) || !!c.value.querySelector("input, textarea, select");
+      if (!nodeText(c.value) && !isControl) return;
+      add(c.title, c.value, titleAnchoredPaths(c.caption, c.value), isControl ? "input" : "text");
+    });
+
     // Two-column "Label | Value" rows, e.g. eSUB Manager envelope tables.
     doc.querySelectorAll("tr").forEach((row) => {
       if (row.children.length !== 2) return;
@@ -508,7 +587,7 @@
     const labels = doc.querySelectorAll("label").length;
     const headers = doc.querySelectorAll("table th").length;
     const titled = doc.querySelectorAll("input[title], textarea[title]").length;
-    return controls + labels + headers + titled;
+    return controls + labels + headers + titled + titleCaptions(doc).length;
   }
 
   function assessPath(doc, xpath, hintNode) {
@@ -553,6 +632,7 @@
     collectFields,
     rankFields,
     documentRichness,
+    shadowGaps,
     assessPath,
     inferUrl,
     unique

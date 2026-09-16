@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "8";
+  const BUILD = "10";
 
   const $ = (id) => document.getElementById(id);
 
@@ -150,6 +150,8 @@
     pills.push('<span class="pill ' + (doc.isIframe ? "accent" : "") + '">' + doc.kindLabel + "</span>");
     if (doc.urlHint) pills.push('<span class="pill">' + doc.urlHint + "</span>");
     pills.push('<span class="pill ' + (state.fields.length ? "ok" : "bad") + '">' + state.fields.length + " fields</span>");
+    const gaps = doc.shadowGaps || [];
+    if (gaps.length) pills.push('<span class="pill warn">' + gaps.length + " unreadable</span>");
     $("docPills").innerHTML = pills.join("");
 
     $("urlHint").value = doc.urlHint || "";
@@ -162,7 +164,10 @@
       clearDetail();
       $("whyBox").textContent = doc.isHelper
         ? "This file is a helper frame Chrome saved alongside the page. It has no fields. Pick a page with a green count."
-        : "No labels, table headers or form controls were found in this file. The real content may be in an inner frame such as V1.html.";
+        : gaps.length
+          ? gaps.length + " caption(s) were found, but every value is drawn inside a web component (shadow DOM), which no XPath can read. " +
+            "Examples: " + gaps.slice(0, 4).map((g) => g.label).join(", ") + "."
+          : "No labels, table headers or form controls were found in this file. The real content may be in an inner frame such as V1.html.";
     }
     setSteps();
   }
@@ -401,6 +406,9 @@
   async function handleFiles(files, options) {
     const opts = options || {};
     if ((!files || !files.length) && opts.mode !== "folder") return;
+    const pickedHtml = Array.from(files || [])
+      .map((f) => f.name || "")
+      .filter((n) => WxIngest.isHtmlKind(n));
     busy(true, opts.mode === "folder" ? "Scanning folder for HTML files…" : "Reading files…");
     $("warnBox").innerHTML = "";
 
@@ -476,10 +484,45 @@
     if (helpers) {
       notes.push(alertHtml("info", "Chrome saved " + helpers + " helper frame(s) with no fields (login, token, blank). They are hidden. " + report.usefulDocs + " real page(s) found."));
     }
+    const lostLabels = shadowGapLabels(report);
+    if (lostLabels.length) {
+      notes.push(alertHtml("warn",
+        lostLabels.length + " field(s) were found but cannot be read: <strong>" +
+        escapeHtml(lostLabels.slice(0, 6).join(", ")) + "</strong>" +
+        (lostLabels.length > 6 ? ", and more" : "") +
+        ". Their values are drawn inside web components (shadow DOM), which no XPath can reach — not here and not in Task Mining. " +
+        "Saving the page again will not recover them.", true));
+    }
+    const folderPrompt = folderPromptHtml(report, opts, pickedHtml);
+    if (folderPrompt) notes.push(folderPrompt);
     $("warnBox").innerHTML = notes.join("");
 
     busy(false, addSummary(report));
     setSteps();
+  }
+
+  function shadowGapLabels(report) {
+    const seen = new Set();
+    (report.docs || []).forEach((d) => {
+      if (d.isHelper) return;
+      (d.shadowGaps || []).forEach((g) => seen.add(g.label));
+    });
+    return Array.from(seen);
+  }
+
+  /* A lone .html cannot reach its _files folder, and only some pages declare the
+     iframes that would trigger the missing-frame alert. Offer the folder anyway,
+     otherwise the paired route has nothing to point at. */
+  function folderPromptHtml(report, opts, pickedHtml) {
+    if (opts.mode === "folder" || !pickedHtml.length) return "";
+    if (!report.docs.length || report.missingFrames.length) return "";
+    if (report.docs.some((d) => /_files\//i.test(d.name))) return "";
+    const name = pickedHtml[0].split("/").pop();
+    return alertHtml("info",
+      "Added <strong>" + escapeHtml(name) + "</strong> on its own. A page saved as “Webpage, Complete” keeps its " +
+      "iframes in a sibling <strong>_files</strong> folder, and a lone HTML file cannot reach them. " +
+      "Nothing already loaded is lost when you add it." +
+      '<button type="button" class="btn sm alert-action" data-action="add-folder">Choose the folder</button>', true);
   }
 
   function addSummary(report) {

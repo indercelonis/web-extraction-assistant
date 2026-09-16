@@ -111,7 +111,24 @@ async function run() {
   ], { mode: "folder" });
   check(tooLarge.docs.length === 0, "Oversized HTML is skipped");
   check(tooLarge.input.oversizedFiles === 1, "Oversized HTML is counted");
-  check(tooLarge.errors.some((e) => /larger than 45 MB/i.test(e)), "Oversized HTML explains its limit");
+  check(tooLarge.errors.some((e) => /larger than 60 MB/i.test(e)), "Oversized HTML explains its limit", tooLarge.errors);
+
+  // A ZIP is a container, not a document: only the HTML inside it is parsed, so
+  // it must not be judged by the assets it carries.
+  const bigArchive = await WxIngest.ingestFiles([
+    fakeFile("save.zip", "", { size: WxIngest.MAX_BYTES + 1 })
+  ], { mode: "files" });
+  check(bigArchive.input.oversizedFiles === 0,
+    "An archive above the document limit is still opened", bigArchive.errors);
+  check(!bigArchive.errors.some((e) => /larger than/i.test(e)),
+    "An archive above the document limit is not refused for its size", bigArchive.errors);
+
+  const hugeArchive = await WxIngest.ingestFiles([
+    fakeFile("save.zip", "", { size: WxIngest.MAX_ARCHIVE_BYTES + 1 })
+  ], { mode: "files" });
+  check(hugeArchive.input.oversizedFiles === 1, "An archive above the archive limit is skipped");
+  check(hugeArchive.errors.some((e) => /larger than 500 MB/i.test(e)),
+    "The archive limit is explained in its own terms", hugeArchive.errors);
 
   const unreadable = await WxIngest.ingestFiles([
     fakeFile("locked.html", "", { relativePath: "root/locked.html", readError: "permission denied" })

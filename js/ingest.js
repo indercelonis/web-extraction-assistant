@@ -1,7 +1,17 @@
 (function (global) {
-  const MAX_BYTES = 45 * 1024 * 1024;
+  /* Everything runs in one browser tab, so memory is the only budget. A document
+     costs far more than its bytes once it is a string and then a DOM, which is
+     what these caps protect. An archive is different: most of a saved page is
+     JavaScript, CSS and images that never get parsed, so judge a ZIP by the HTML
+     taken out of it rather than by its own size. */
+  const MAX_BYTES = 60 * 1024 * 1024;
+  const MAX_ARCHIVE_BYTES = 500 * 1024 * 1024;
   const MAX_INPUT_FILES = 5000;
   const MAX_TOTAL_BYTES = 500 * 1024 * 1024;
+
+  function mb(bytes) {
+    return Math.round(bytes / (1024 * 1024)) + " MB";
+  }
 
   function extOf(name) {
     const n = String(name || "").toLowerCase();
@@ -76,24 +86,53 @@
     return parseHtmlDocument(decoded, name);
   }
 
-  async function readZip(file) {
+  // JSZip keeps the unpacked size on a private field, so treat it as a hint that
+  // may be absent rather than a guarantee. Zero means "not yet known".
+  function entrySize(entry) {
+    return Number((entry && entry._data && entry._data.uncompressedSize) || 0);
+  }
+
+  async function readZip(file, budget) {
+    const room = budget || { spent: 0 };
     const zip = await JSZip.loadAsync(file);
     const docs = [];
     const others = [];
+    const skipped = [];
     const names = Object.keys(zip.files);
     for (const path of names) {
       const entry = zip.files[path];
       if (entry.dir) continue;
       const kind = kindOf(path);
+      if (kind !== "html" && kind !== "image" && kind !== "pdf" && kind !== "recconf" && kind !== "mhtml") continue;
+
+      const hint = entrySize(entry);
+      if (hint > MAX_BYTES) {
+        skipped.push(path + " is larger than " + mb(MAX_BYTES) + " unpacked");
+        continue;
+      }
+      if (room.spent + hint > MAX_TOTAL_BYTES) {
+        skipped.push("the " + mb(MAX_TOTAL_BYTES) + " memory budget was reached before " + path);
+        break;
+      }
+
       if (kind === "html") {
+        // Unpacking to a string costs a fraction of what a DOM costs, so measure
+        // here and stop before parsing if the hint was missing or wrong.
         const html = await entry.async("string");
+        if (html.length > MAX_BYTES) {
+          skipped.push(path + " is larger than " + mb(MAX_BYTES) + " unpacked");
+          continue;
+        }
+        room.spent += html.length;
         docs.push(parseHtmlDocument(html, path));
-      } else if (kind === "image" || kind === "pdf" || kind === "recconf" || kind === "mhtml") {
-        others.push({ name: path, kind, blob: await entry.async("blob") });
+      } else {
+        const blob = await entry.async("blob");
+        room.spent += Number(blob.size || hint);
+        others.push({ name: path, kind, blob });
       }
     }
     docs.sort((a, b) => Number(a.isIframe) - Number(b.isIframe));
-    return { docs, others, zipNames: names };
+    return { docs, others, zipNames: names, skipped };
   }
 
   async function readRecconf(text) {
@@ -167,20 +206,30 @@
       const kind = kindOf(name, file.type);
       if (kind === "html") report.input.htmlFiles += 1;
 
-      if (file.size > MAX_BYTES) {
+      // An archive is a container, not a document: only its HTML is parsed, so
+      // it gets its own ceiling and its contents are metered inside readZip.
+      const cap = kind === "zip" ? MAX_ARCHIVE_BYTES : MAX_BYTES;
+      if (file.size > cap) {
         report.input.oversizedFiles += 1;
-        report.errors.push(name + " is larger than 45 MB and was skipped.");
+        report.errors.push(name + " is larger than " + mb(cap) + " and was skipped.");
         continue;
       }
-      totalBytes += Number(file.size || 0);
-      if (totalBytes > MAX_TOTAL_BYTES) {
-        report.errors.push("The selected files exceed the 500 MB safety limit. Remaining files were skipped.");
-        break;
+      if (kind !== "zip") {
+        totalBytes += Number(file.size || 0);
+        if (totalBytes > MAX_TOTAL_BYTES) {
+          report.errors.push("The selected files exceed the " + mb(MAX_TOTAL_BYTES) + " memory budget. Remaining files were skipped.");
+          break;
+        }
       }
 
       try {
         if (kind === "zip") {
-          const z = await readZip(file);
+          const budget = { spent: totalBytes };
+          const z = await readZip(file, budget);
+          totalBytes = budget.spent;
+          if (z.skipped.length) {
+            report.warnings.push("Inside " + name + ", " + z.skipped.length + " file(s) were skipped: " + z.skipped.slice(0, 3).join("; ") + ".");
+          }
           report.docs.push.apply(report.docs, z.docs.map((d) => Object.assign(d, { archive: name })));
           for (const o of z.others) {
             const f = new File([o.blob], o.name, { type: o.blob.type });
@@ -244,6 +293,7 @@
         d.kindLabel = "Power Apps iframe";
       }
       d.richness = WxPath.documentRichness(d.doc);
+      d.shadowGaps = WxPath.shadowGaps(d.doc);
       d.isHelper = HELPER.test(d.name) || d.richness === 0;
       if (d.isHelper) d.kindLabel = "helper frame, no fields";
     });
@@ -362,6 +412,7 @@
     fileName,
     isHtmlKind,
     MAX_BYTES,
+    MAX_ARCHIVE_BYTES,
     MAX_INPUT_FILES,
     MAX_TOTAL_BYTES
   };
