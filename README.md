@@ -93,6 +93,29 @@ For the full automated suite:
 npm test
 ```
 
+## Pages built from components (Jira, Salesforce Lightning)
+
+A React app rarely uses `<label>`. It draws a field as a caption beside a value, both plain
+divs, and marks its components with a test hook such as `data-testid`. The tool reads all of
+these:
+
+- A caption next to its value, whatever tags they use. Where a hook declares the caption a
+  field heading, the tool takes its word for it, which is how a name wrapped in a profile-card
+  button is still read as a value.
+- A value the library marks as a field but nothing captions, such as Jira's status button.
+  The field name is read from the hook, with the scaffolding words dropped.
+- The record's own identifier, matched against the page URL. `/browse/CBE-55689` gives a
+  **Record key** field pointing at wherever the page prints it.
+
+Paths anchor on test hooks rather than class names, because a hook is maintained on purpose
+while `css-1gd7hga` is rewritten by the next release. A path is only anchored on a hook the
+page uses once: Jira gives every person on screen the same profile-card hook, and anchoring on
+that reads the wrong person. Any path that still has to fall back to a generated class name is
+scored down and says so.
+
+Values rendered inside a shadow root remain out of reach for any XPath. Those fields are named
+and reported rather than offered as rules.
+
 ## Image reader
 
 Bundled **Tesseract.js** (Apache-2.0), fully local (`vendor/tesseract`). English trained data is included. It reads PNG, JPEG, WebP, BMP, GIF. It cannot see the DOM, so it will not invent XPaths.

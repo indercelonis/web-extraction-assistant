@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "10";
+  const BUILD = "11";
 
   const $ = (id) => document.getElementById(id);
 
@@ -142,7 +142,7 @@
   function selectDoc(i) {
     state.docIndex = i;
     const doc = state.report.docs[i];
-    state.fields = WxPath.rankFields(doc.doc, WxPath.collectFields(doc.doc));
+    state.fields = WxPath.rankFields(doc.doc, WxPath.collectFields(doc.doc, { url: doc.sourceUrl }));
     $("docTitle").textContent = doc.title || doc.name;
     $("docMeta").textContent = doc.sourceUrl ? "Saved from " + doc.sourceUrl : "No source URL found in this file. Set the URL filter by hand.";
 
