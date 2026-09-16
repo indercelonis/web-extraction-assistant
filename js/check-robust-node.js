@@ -123,6 +123,50 @@ function salesforce(valueMarkup, wrapped) {
     "A value no path can reach must not be offered as a rule");
 });
 
+// A navigation link repeats its own text in its tooltip and sits alone in its
+// list item. Pairing one with the next link along turns a menu into a field
+// list: "LinkedIn" with the value "YouTube".
+const menu = rank(`<body><footer><ul>
+  <li><a title="LinkedIn" href="/li">LinkedIn</a></li>
+  <li><a title="YouTube" href="/yt">YouTube</a></li>
+  <li><a title="Instagram" href="/ig">Instagram</a></li>
+</ul></footer></body>`);
+assert.ok(!menu.some((f) => /linkedin|youtube|instagram/i.test(f.label)),
+  "A menu of links is not a field list, got " + JSON.stringify(menu.map((f) => f.label + "=" + f.best.sample)));
+
+// A heading above a list of links heads a menu, not a field. One link is
+// different: that is a lookup field pointing at another record.
+const panel = rank(`<body><div><h2>Solutions</h2><div>
+  <a href="/a">Supply Chain</a><a href="/b">Finance</a><a href="/c">Banking</a></div></div></body>`);
+assert.ok(!find(panel, "solutions"),
+  "A heading above several links heads a menu, got " + JSON.stringify(panel.map((f) => f.label)));
+
+// The country picker in a page footer opens a menu. What a disclosure reveals
+// is not the value of a field.
+const picker = rank(`<body><details><summary>Europe</summary><ul><li>Austria</li><li>Albania</li></ul></details></body>`);
+assert.ok(!find(picker, "europe"),
+  "A disclosure control is not a field caption, got " + JSON.stringify(picker.map((f) => f.label)));
+
+// A path can match exactly one node and still read the wrong thing, which is
+// the one failure a person cannot see by looking at the rule. Such a path
+// must be marked down and must say so.
+const elsewhere = new JSDOM(`<!doctype html><body>
+  <div id="row"><span>Owner</span><span id="value">Ada</span></div>
+  <div id="other">Somebody else</div></body>`, { contentType: "text/html" }).window.document;
+const right = WxPath.assessPath(elsewhere, "//*[@id='value']", elsewhere.getElementById("value"));
+const wrong = WxPath.assessPath(elsewhere, "//*[@id='other']", elsewhere.getElementById("value"));
+assert.strictEqual(right.matchCount, 1, "The correct path must match one node");
+assert.strictEqual(wrong.matchCount, 1, "The wrong path also matches one node, which is the point");
+assert.ok(wrong.score < right.score - 30,
+  "A path reading the wrong element must score far below the right one, got " + wrong.score + " against " + right.score);
+assert.notStrictEqual(wrong.confidence, "high", "A path reading the wrong element cannot be high confidence");
+assert.ok(wrong.risks.some((r) => /different part of the page/.test(r)),
+  "A path reading the wrong element must say so, got " + JSON.stringify(wrong.risks));
+// A node that wraps the field, or sits inside it, is still the field.
+const wrapper = WxPath.assessPath(elsewhere, "//*[@id='row']", elsewhere.getElementById("value"));
+assert.ok(!wrapper.risks.some((r) => /different part of the page/.test(r)),
+  "A node wrapping the field is not a different part of the page");
+
 // A button standing in an empty field is an action, not a value.
 assert.ok(!rank(`<body><div><div><span>Object</span></div><div><button>Add object</button></div></div></body>`)
   .some((f) => f.best.sample === "Add object"), "A button offering an action is not a value");

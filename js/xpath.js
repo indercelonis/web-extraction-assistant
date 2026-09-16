@@ -207,9 +207,21 @@
     return result;
   }
 
-  function scorePath(xpath, matchCount, sample, node) {
+  function scorePath(xpath, matchCount, sample, node, intended) {
     let score = 50;
     const risks = [];
+    // A path can match exactly one node and still be wrong, when the node it
+    // matches is not the field the path was built for. A following:: step
+    // walks the rest of the document, so on a page of panels it readily lands
+    // somewhere else. Reading the wrong part of the page is the one failure a
+    // person cannot see by looking at the rule, so it costs more than any
+    // other. A node that wraps the field, or sits inside it, still counts as
+    // the field.
+    if (intended && node && matchCount && node !== intended &&
+      !(node.contains && (node.contains(intended) || intended.contains(node)))) {
+      score -= 45;
+      risks.push("Reads a different part of the page than the field it was built for");
+    }
     if (matchCount === 1) score += 25;
     if (matchCount === 0) {
       score = 5;
@@ -436,6 +448,11 @@
       if (cap.querySelector("input, textarea, select")) return;
       const own = nodeText(cap).replace(/[:*]/g, "").trim();
       if (!own || own.toLowerCase() !== title.toLowerCase()) return;
+      // A navigation link repeats its own text in its tooltip, and sits alone
+      // in its list item. Reading such a link as a caption pairs it with the
+      // next link along, which is how a menu turns into "LinkedIn: YouTube".
+      // A field caption is static text.
+      if (captionIsControl(cap)) return;
       const value = captionValueRegion(cap);
       if (!value) return;
       out.push({ caption: cap, value, title, adjacent: cap.nextElementSibling === value });
@@ -540,7 +557,9 @@
    */
   function captionIsControl(el) {
     const tag = el.tagName.toLowerCase();
-    if (/^(a|button|input|textarea|select)$/.test(tag)) return true;
+    // <summary> opens a disclosure, as in the country picker in a page
+    // footer. What it reveals is a menu, not the value of a field.
+    if (/^(a|button|input|textarea|select|summary)$/.test(tag)) return true;
     const role = el.getAttribute("role");
     if (role && /^(button|link|menuitem|tab)$/.test(role)) return true;
     return textIsAllInteractive(el);
@@ -598,6 +617,16 @@
       // A row offering a button offers an action. A row whose value is a link
       // is a lookup field, and its link text is the value.
       if (!declared && textIsAllActions(val)) return;
+
+      // A menu is not a field. One link is a lookup field pointing at another
+      // record; several links are a list of places to go, which is how a
+      // heading in a mega-menu came to be read as a field whose value was the
+      // next menu entry along.
+      if (!declared) {
+        const links = Array.from(val.querySelectorAll("a, [role='link']")).filter((a) => nodeText(a));
+        if (links.length > 1) return;
+        if (row.closest && row.closest("nav, [role='navigation'], [role='menu']")) return;
+      }
 
       // The row must hold nothing but the caption and the value. Compare
       // without spaces, since the gap between two children is not meaningful.
@@ -1094,7 +1123,7 @@
   function assessPath(doc, xpath, hintNode) {
     const result = evaluateXPath(doc, xpath);
     const sample = result.nodes.map(nodeText).filter(Boolean)[0] || (result.nodes[0] ? nodeText(result.nodes[0]) : "");
-    const scored = scorePath(xpath, result.nodes.length, sample, result.nodes[0] || hintNode);
+    const scored = scorePath(xpath, result.nodes.length, sample, result.nodes[0] || hintNode, hintNode);
     return {
       xpath,
       matchCount: result.nodes.length,

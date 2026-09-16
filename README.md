@@ -121,6 +121,18 @@ A lookup field prints its value as a link to the record it points at, which is h
 draws a case owner, a contact and an account. Link text is therefore read as a value. A button
 is not: "Add object" sits where a value would sit only because the field is empty.
 
+A menu is not a field. One link beside a caption is a lookup field; several are a list of
+places to go. A navigation link repeats its own text in its tooltip and sits alone in its list
+item, so reading it as a caption would pair it with the next link along and report "LinkedIn"
+with the value "YouTube". Captions inside a navigation region, and disclosure controls such as
+the country picker in a page footer, are left alone.
+
+Every offered path is checked against the element the field was found on. A path can match
+exactly one node and still read the wrong thing, since a `following::` step walks the rest of
+the document and on a page of panels readily lands elsewhere. That is the one failure nobody can
+see by reading the rule, so such a path is scored down heavily and says which field it was
+built for.
+
 Values rendered inside a shadow root remain out of reach for any XPath, here and in Task Mining
 against the live page. Salesforce leaves an empty `<force-owner-lookup>` behind in the saved
 page and prints the owner's name only inside it. Such a field is listed by name, with the

@@ -11,7 +11,7 @@
     pairing: false
   };
 
-  const BUILD = "12";
+  const BUILD = "13";
 
   const $ = (id) => document.getElementById(id);
 
