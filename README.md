@@ -19,6 +19,25 @@ chmod +x deploy/deploy-cloudrun.sh
 
 Optional public Firebase Hosting (not Celonis-gated): put the project id in `.firebaserc`, then `./deploy/deploy-firebase.sh`.
 
+## Updating an S3 bucket that already exists
+
+`deploy/deploy-s3.sh` builds the bucket, the distribution and the access policy through
+CloudFormation, and owns what it built. A bucket set up by hand in the console belongs to no
+stack, so that script would build a second copy of everything beside it. Use this instead:
+
+```bash
+./deploy/update-s3.sh --verify          # what is live now, no credentials needed
+./deploy/update-s3.sh                   # upload, invalidate, then confirm
+```
+
+It uploads only what the browser loads, holds `index.html` and `version.json` out of the cache
+so a reader always learns which version exists, invalidates the distribution, waits for the
+invalidation and then reports the build actually being served. A deploy that changed nothing
+looks exactly like one that worked, which is what the closing check is for.
+
+The bucket, distribution and URL default to the ones already in use and can be overridden by
+argument or by `WEA_BUCKET`, `WEA_DIST` and `WEA_URL`.
+
 ## Start
 
 ```bash
